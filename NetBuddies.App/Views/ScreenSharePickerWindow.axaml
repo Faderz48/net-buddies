@@ -1,0 +1,53 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:services="using:NetBuddies.App.Services"
+        x:Class="NetBuddies.App.Views.ScreenSharePickerWindow"
+        Title="Start Screen Share"
+        Width="460"
+        Height="260"
+        MinWidth="420"
+        MinHeight="240"
+        Background="{DynamicResource NbPageBrush}">
+    <StackPanel Margin="14"
+                Spacing="10">
+        <TextBlock Text="Screen Share"
+                   Foreground="{DynamicResource NbTextBrush}"
+                   FontSize="20"
+                   FontWeight="Bold"/>
+        <TextBlock Text="SOURCE"
+                   Foreground="{DynamicResource NbLinkBrush}"
+                   FontSize="12"
+                   FontWeight="SemiBold"/>
+        <ComboBox x:Name="SourceBox"
+                  HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="services:ScreenShareSource">
+                    <TextBlock Text="{Binding Name}"/>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Text="QUALITY PRESET"
+                   Foreground="{DynamicResource NbLinkBrush}"
+                   FontSize="12"
+                   FontWeight="SemiBold"/>
+        <ComboBox x:Name="QualityBox"
+                  HorizontalAlignment="Stretch">
+            <ComboBoxItem Content="Smooth 720p - 30 fps" Tag="720|30|60"/>
+            <ComboBoxItem Content="Sharp 1080p - 30 fps" Tag="1080|30|68"/>
+            <ComboBoxItem Content="Balanced 720p - 20 fps" Tag="720|20|72"/>
+        </ComboBox>
+        <Grid ColumnDefinitions="*,Auto,Auto"
+              ColumnSpacing="8">
+            <TextBlock x:Name="StatusText"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                       TextWrapping="Wrap"/>
+            <Button Grid.Column="1"
+                    Content="Cancel"
+                    Click="Cancel_Click"/>
+            <Button Grid.Column="2"
+                    Content="Send Invite"
+                    Click="SendInvite_Click"/>
+        </Grid>
+    </StackPanel>
+</Window>

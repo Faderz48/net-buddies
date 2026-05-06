@@ -1,0 +1,86 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:NetBuddies.App.Views"
+        x:Class="NetBuddies.App.Views.GifPickerWindow"
+        Title="Send GIF"
+        Width="620"
+        Height="560"
+        MinWidth="460"
+        MinHeight="420"
+        Background="{DynamicResource NbPageBrush}">
+    <Grid RowDefinitions="Auto,Auto,*,Auto"
+          Margin="12"
+          RowSpacing="10">
+        <Grid ColumnDefinitions="*,Auto"
+              ColumnSpacing="8">
+            <TextBox x:Name="SearchBox"
+                     PlaceholderText="Search GIPHY GIFs..."
+                     MinHeight="36"/>
+            <Button Grid.Column="1"
+                    Content="Search"
+                    Click="Search_Click"
+                    MinWidth="92"/>
+        </Grid>
+
+        <Border x:Name="ApiKeyPanel"
+                Grid.Row="1"
+                Background="{DynamicResource NbInviteBrush}"
+                BorderBrush="{DynamicResource NbInviteBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="8">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="8">
+                <TextBox x:Name="ApiKeyBox"
+                         PlaceholderText="GIPHY API key"
+                         PasswordChar="*"
+                         MinHeight="34"/>
+                <Button Grid.Column="1"
+                        Content="Save Key"
+                        Click="SaveApiKey_Click"
+                        MinWidth="92"/>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="2"
+                      Background="{DynamicResource NbPanelBrush}">
+            <ItemsControl x:Name="ResultsList">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="views:GifPickerItem">
+                        <Border Background="{DynamicResource NbMessageBrush}"
+                                BorderBrush="{DynamicResource NbMessageBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="6"
+                                Margin="6"
+                                Width="170">
+                            <StackPanel Spacing="6">
+                                <Image Source="{Binding PreviewImage}"
+                                       Width="156"
+                                       Height="116"
+                                       Stretch="Uniform"/>
+                                <TextBlock Text="{Binding Title}"
+                                           Foreground="{DynamicResource NbTextBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Button Content="Send"
+                                        Tag="{Binding}"
+                                        Click="SendGif_Click"
+                                        HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <TextBlock x:Name="StatusText"
+                   Grid.Row="3"
+                   Foreground="{DynamicResource NbSubtleTextBrush}"
+                   TextWrapping="Wrap"/>
+    </Grid>
+</Window>

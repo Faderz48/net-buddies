@@ -1,0 +1,16 @@
+*.cs text eol=crlf
+*.axaml text eol=crlf
+*.csproj text eol=crlf
+*.slnx text eol=crlf
+*.ps1 text eol=crlf
+*.iss text eol=crlf
+*.md text eol=crlf
+*.json text eol=crlf
+*.desktop text eol=lf
+*.svg text eol=lf
+AppRun text eol=lf
+*.AppImage binary
+*.exe binary
+*.zip binary
+*.ico binary
+*.png binary

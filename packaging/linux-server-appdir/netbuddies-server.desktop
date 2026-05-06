@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Net Buddies Server
+Comment=Host a Net Buddies chat and games server
+Exec=AppRun
+Icon=netbuddies-server
+Terminal=true
+Categories=Network;Chat;

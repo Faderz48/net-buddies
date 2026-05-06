@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NetBuddies.App.ViewModels"
+        x:Class="NetBuddies.App.Views.ScreenShareWindow"
+        x:DataType="vm:ScreenShareViewModel"
+        Title="Screen Share"
+        Width="980"
+        Height="640"
+        MinWidth="620"
+        MinHeight="420"
+        Background="{DynamicResource NbPageBrush}">
+    <Grid RowDefinitions="Auto,*,Auto"
+          Margin="12"
+          RowSpacing="10">
+        <TextBlock Text="{Binding StatusText}"
+                   Foreground="{DynamicResource NbTextBrush}"
+                   FontSize="16"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap"/>
+        <Border Grid.Row="1"
+                Background="#07111D"
+                BorderBrush="#8BBFEF"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="8">
+            <Image Source="{Binding CurrentFrame}"
+                   Stretch="Uniform"/>
+        </Border>
+        <Button Grid.Row="2"
+                Content="End Screen Share"
+                Command="{Binding EndShareCommand}"
+                HorizontalAlignment="Right"
+                MinWidth="150"/>
+    </Grid>
+</Window>

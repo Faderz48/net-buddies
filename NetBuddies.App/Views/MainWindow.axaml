@@ -1,0 +1,216 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NetBuddies.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="620"
+        d:DesignHeight="740"
+        Width="620"
+        Height="740"
+        MinWidth="460"
+        MinHeight="520"
+        x:Class="NetBuddies.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/netbuddies.ico"
+        Title="Net Buddies Sign In">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Window.Styles>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource NbPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="{DynamicResource NbPanelBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NbMessageBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="{DynamicResource NbLinkBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*"
+          Background="{DynamicResource NbPageBrush}">
+        <Border Background="{DynamicResource NbHeaderBrush}"
+                BorderBrush="{DynamicResource NbHeaderBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="18,14">
+            <Grid ColumnDefinitions="Auto,*">
+                <Image Source="/Assets/netbuddies-48.png"
+                       Width="48"
+                       Height="48"
+                       Stretch="Uniform"/>
+                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="Net Buddies"
+                               Foreground="White"
+                               FontSize="28"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="{Binding StatusText}"
+                               Foreground="#E8F7FF"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Menu Grid.Row="1"
+              Background="{DynamicResource NbPanelBrush}">
+            <MenuItem Header="_Settings">
+                <MenuItem Header="Theme">
+                    <MenuItem Header="Light" Click="LightTheme_Click"/>
+                    <MenuItem Header="Dark" Click="DarkTheme_Click"/>
+                </MenuItem>
+            </MenuItem>
+        </Menu>
+
+        <ScrollViewer Grid.Row="2"
+                      Margin="18"
+                      VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="14">
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Sign In" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource NbTextBrush}"/>
+                    <TextBlock Text="Your name appears to everyone connected to the server."
+                               Foreground="{DynamicResource NbSubtleTextBrush}"/>
+
+                    <Grid ColumnDefinitions="74,*" ColumnSpacing="12" Margin="0,4,0,0">
+                        <Border Width="64"
+                                Height="64"
+                                Background="{DynamicResource NbAvatarBrush}"
+                                BorderBrush="{DynamicResource NbAvatarBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <Grid>
+                                <Ellipse Width="30" Height="30" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,8,0,0"/>
+                                <Ellipse Width="44" Height="26" Fill="#2F9BE4" VerticalAlignment="Bottom" Margin="0,0,0,7"/>
+                                <Image Source="{Binding ProfileImage}"
+                                       Stretch="UniformToFill"/>
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
+                            <TextBlock Text="PROFILE PICTURE" Classes="label"/>
+                            <Button Content="Change Picture"
+                                    Click="ChangePicture_Click"
+                                    HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="DISPLAY NAME" Classes="label" Margin="0,8,0,0"/>
+                    <TextBox Text="{Binding DisplayName}"
+                             PlaceholderText="Alex"/>
+
+                    <TextBlock Text="PERSONAL MESSAGE" Classes="label"/>
+                    <TextBox Text="{Binding PersonalMessage}"
+                             PlaceholderText="Stay connected. Always."/>
+
+                    <TextBlock Text="STATUS" Classes="label"/>
+                    <ComboBox ItemsSource="{Binding StatusChoices}"
+                              SelectedItem="{Binding SelectedStatus}"
+                              HorizontalAlignment="Stretch"/>
+
+                    <Grid ColumnDefinitions="*,108" ColumnSpacing="8">
+                        <StackPanel>
+                            <TextBlock Text="SERVER ADDRESS" Classes="label"/>
+                            <TextBox Text="{Binding HostAddress}"
+                                     PlaceholderText="127.0.0.1"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="PORT" Classes="label"/>
+                            <NumericUpDown Value="{Binding Port}"
+                                           Minimum="1"
+                                           Maximum="65535"
+                                           Increment="1"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="INTERNET HOSTING SECURITY" Classes="label"/>
+                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="12">
+                        <CheckBox Content="Use TLS"
+                                  IsChecked="{Binding UseSecureTls}"/>
+                        <CheckBox Grid.Column="1"
+                                  Content="Trust self-signed"
+                                  IsChecked="{Binding TrustSelfSignedCertificate}"/>
+                        <TextBox Grid.Column="2"
+                                 Text="{Binding ServerInviteCode}"
+                                 PasswordChar="*"
+                                 PlaceholderText="Invite code"/>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button Content="Join Chat"
+                                Classes="primary"
+                                Command="{Binding JoinCommand}"
+                                HorizontalAlignment="Stretch"/>
+                        <Button Grid.Column="1"
+                                Content="Join Local"
+                                Command="{Binding JoinLocalServerCommand}"
+                                HorizontalAlignment="Stretch"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Server Operators" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource NbTextBrush}"/>
+                    <TextBlock Text="Start hosting without signing in. Other buddies can join your IP and port."
+                               Foreground="{DynamicResource NbSubtleTextBrush}"
+                               TextWrapping="Wrap"/>
+                    <Grid ColumnDefinitions="*,160" ColumnSpacing="8">
+                        <StackPanel>
+                            <TextBlock Text="TLS CERTIFICATE (.PFX)" Classes="label"/>
+                            <TextBox Text="{Binding CertificatePath}"
+                                     PlaceholderText="Optional for secure direct hosting"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="CERT PASSWORD" Classes="label"/>
+                            <TextBox Text="{Binding CertificatePassword}"
+                                     PasswordChar="*"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button Content="Select TLS Certificate"
+                                Click="SelectCertificate_Click"
+                                HorizontalAlignment="Stretch"/>
+                        <Button Grid.Column="1"
+                                Content="Generate TLS Certificate"
+                                Click="GenerateCertificate_Click"
+                                HorizontalAlignment="Stretch"/>
+                    </Grid>
+                    <TextBlock Text="{Binding TlsStatus}"
+                               Foreground="{DynamicResource NbSubtleTextBrush}"
+                               TextWrapping="Wrap"/>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button Content="Start Server"
+                                Classes="primary"
+                                Command="{Binding StartHostingCommand}"
+                                HorizontalAlignment="Stretch"/>
+                        <Button Grid.Column="1"
+                                Content="Stop Server"
+                                Command="{Binding StopHostingCommand}"
+                                HorizontalAlignment="Stretch"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="panel">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Ellipse Width="12" Height="12" Fill="#2BBF49" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding StatusText}"
+                               Foreground="{DynamicResource NbTextBrush}"
+                               TextWrapping="Wrap"/>
+                </Grid>
+            </Border>
+        </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

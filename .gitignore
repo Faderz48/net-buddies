@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+.idea/
+.vscode/
+.tools/
+publish/
+*.user
+*.suo
+*.log
+*.tmp
+TestResults/
+artifacts/**/*.tmp

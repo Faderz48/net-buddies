@@ -1,0 +1,295 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NetBuddies.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="760"
+        d:DesignHeight="700"
+        Width="760"
+        Height="700"
+        MinWidth="560"
+        MinHeight="520"
+        x:Class="NetBuddies.App.Views.ChatWindow"
+        x:DataType="vm:ConversationViewModel"
+        Title="{Binding BuddyName}">
+
+    <Window.Styles>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource NbPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.message">
+            <Setter Property="Background" Value="{DynamicResource NbMessageBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NbMessageBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Margin" Value="8,5"/>
+        </Style>
+        <Style Selector="Menu.headerMenu">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="MenuItem.headerAction">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          Background="{DynamicResource NbPageBrush}">
+        <Border Background="{DynamicResource NbHeaderAccentBrush}"
+                BorderBrush="{DynamicResource NbHeaderBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="14,12">
+            <Grid ColumnDefinitions="Auto,*">
+                <Grid ColumnDefinitions="48,*"
+                      ColumnSpacing="10"
+                      MinWidth="210"
+                      MaxWidth="290">
+                    <Border Width="44"
+                            Height="44"
+                            Background="{DynamicResource NbAvatarBrush}"
+                            BorderBrush="{DynamicResource NbAvatarBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="7"
+                            VerticalAlignment="Center">
+                        <Grid>
+                            <Ellipse Width="21" Height="21" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,5,0,0"/>
+                            <Ellipse Width="32" Height="20" Fill="#2F9BE4" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+                            <Image Source="{Binding BuddyProfileImage}"
+                                   Stretch="UniformToFill"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding BuddyName}"
+                                   Foreground="White"
+                                   FontSize="24"
+                                   FontWeight="Bold"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Private chat"
+                                   Foreground="#E8F7FF"/>
+                    </StackPanel>
+                </Grid>
+
+                <ScrollViewer Grid.Column="1"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              Margin="18,0,0,0"
+                              VerticalAlignment="Center">
+                    <Menu Classes="headerMenu"
+                          HorizontalAlignment="Left">
+                        <MenuItem Header="File" Classes="headerAction">
+                            <MenuItem Header="Send File or Photo" Click="SendFile_Click"/>
+                        </MenuItem>
+                        <MenuItem Header="Voice Chat" Classes="headerAction">
+                            <MenuItem Header="Microphone">
+                                <ComboBox ItemsSource="{Binding Microphones}"
+                                          SelectedItem="{Binding SelectedMicrophone}"
+                                          DisplayMemberBinding="{Binding Name}"
+                                          Width="230"
+                                          PlaceholderText="Select microphone"/>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="Invite to Voice"
+                                      Command="{Binding SendPrivateVoiceInviteCommand}"/>
+                            <MenuItem Header="Leave Voice"
+                                      Command="{Binding LeavePrivateVoiceCommand}"/>
+                        </MenuItem>
+                        <MenuItem Header="Room Invite" Classes="headerAction">
+                            <MenuItem Header="Room name">
+                                <TextBox Text="{Binding RoomInviteName}"
+                                         Width="190"
+                                         PlaceholderText="Room name"/>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="Create Room + Send Invite"
+                                      Command="{Binding InviteToRoomCommand}"/>
+                        </MenuItem>
+                        <MenuItem Header="Games" Classes="headerAction">
+                            <MenuItem Header="Tic Tac Toe" Command="{Binding StartTicTacToeCommand}"/>
+                            <MenuItem Header="Checkers" Command="{Binding StartCheckersCommand}"/>
+                            <MenuItem Header="Minesweeper Flags" Command="{Binding StartMinesweeperFlagsCommand}"/>
+                        </MenuItem>
+                        <MenuItem Header="Screen Share" Classes="headerAction">
+                            <MenuItem Header="Share screen..." Click="ScreenShare_Click"/>
+                        </MenuItem>
+                    </Menu>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      Margin="12"
+                      Background="{DynamicResource NbPanelBrush}">
+            <ItemsControl ItemsSource="{Binding Messages}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MessageLineViewModel">
+                        <Border Classes="message">
+                            <Grid ColumnDefinitions="44,*"
+                                  ColumnSpacing="9">
+                                <Border Width="36"
+                                        Height="36"
+                                        Background="{DynamicResource NbAvatarBrush}"
+                                        BorderBrush="{DynamicResource NbAvatarBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        VerticalAlignment="Top">
+                                    <Grid>
+                                        <Ellipse Width="17" Height="17" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,4,0,0"/>
+                                        <Ellipse Width="25" Height="16" Fill="#2F9BE4" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                        <Image Source="{Binding AvatarImage}"
+                                               Stretch="UniformToFill"/>
+                                    </Grid>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="3">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{Binding Sender}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource NbTextBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Stamp}"
+                                                   Foreground="{DynamicResource NbSubtleTextBrush}"
+                                                   FontSize="12"
+                                                   Margin="8,0,0,0"/>
+                                    </Grid>
+                                    <TextBlock Text="{Binding Body}"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource NbStrongTextBrush}"/>
+                                    <Border IsVisible="{Binding HasInlineImage}"
+                                            Background="{DynamicResource NbPanelBrush}"
+                                            BorderBrush="{DynamicResource NbMessageBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="7"
+                                            Padding="4"
+                                            HorizontalAlignment="Left">
+                                        <Image Source="{Binding InlineImage}"
+                                               MaxWidth="320"
+                                               MaxHeight="240"
+                                               Stretch="Uniform"/>
+                                    </Border>
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="8"
+                                                IsVisible="{Binding HasVoiceNote}">
+                                        <Button Content="Play"
+                                                Command="{Binding PlayVoiceNoteCommand}"
+                                                MinWidth="72"/>
+                                        <Button Content="Stop"
+                                                Command="{Binding StopVoiceNoteCommand}"
+                                                IsEnabled="{Binding IsVoiceNotePlaying}"
+                                                MinWidth="72"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Background="{DynamicResource NbPanelBrush}"
+                BorderBrush="{DynamicResource NbMessageBorderBrush}"
+                BorderThickness="1,1,0,0"
+                Padding="12">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                <ScrollViewer MaxHeight="130"
+                              VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding PendingRequests}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ActivityRequestViewModel">
+                                <Border Background="{DynamicResource NbInviteBrush}"
+                                        BorderBrush="{DynamicResource NbInviteBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="8"
+                                        Margin="0,0,0,6">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Title}"
+                                                       Foreground="{DynamicResource NbTextBrush}"
+                                                       FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding Detail}"
+                                                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding ResultText}"
+                                                       Foreground="{DynamicResource NbInviteTextBrush}"
+                                                       FontStyle="Italic"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Content="Accept"
+                                                Command="{Binding AcceptCommand}"
+                                                IsEnabled="{Binding AreActionsEnabled}"/>
+                                        <Button Grid.Column="2"
+                                                Content="Deny"
+                                                Command="{Binding DeclineCommand}"
+                                                IsEnabled="{Binding AreActionsEnabled}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                <TextBlock Text="{Binding TypingStatus}"
+                           Grid.Row="1"
+                           Foreground="{DynamicResource NbSubtleTextBrush}"
+                           FontStyle="Italic"
+                           MinHeight="18"/>
+                <TextBox Text="{Binding DraftMessage}"
+                         Grid.Row="2"
+                         PlaceholderText="Type a message..."
+                         AcceptsReturn="True"
+                         MinHeight="78"
+                         TextWrapping="Wrap"/>
+
+                <Grid Grid.Row="3"
+                      ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto"
+                      ColumnSpacing="8">
+                    <Button Content="Nudge"
+                            Command="{Binding SendNudgeCommand}"/>
+                    <Button Grid.Column="1"
+                            Content="{Binding VoiceNoteButtonText}"
+                            Command="{Binding ToggleVoiceNoteCommand}"/>
+                    <Button Grid.Column="2"
+                            Content="📎"
+                            ToolTip.Tip="Send image"
+                            Click="AttachImage_Click"
+                            MinWidth="62"/>
+                    <Button Grid.Column="3"
+                            Content="GIF"
+                            ToolTip.Tip="Send GIPHY GIF"
+                            Click="Gif_Click"
+                            MinWidth="52"/>
+                    <Button Grid.Column="5"
+                            Content="Send"
+                            Classes="primary"
+                            Command="{Binding SendMessageCommand}"
+                            MinWidth="96"/>
+                </Grid>
+
+                <Grid Grid.Row="4"
+                      ColumnDefinitions="*,90"
+                      ColumnSpacing="8">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding PrivateVoiceStatus}"
+                                   Foreground="{DynamicResource NbSubtleTextBrush}"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding VoiceNoteStatus}"
+                                   Foreground="{DynamicResource NbSubtleTextBrush}"
+                                   FontSize="12"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <ProgressBar Grid.Column="1"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 Value="{Binding MicrophoneLevel}"
+                                 IsVisible="{Binding IsMicrophoneActive}"
+                                 Height="12"
+                                 VerticalAlignment="Center"/>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

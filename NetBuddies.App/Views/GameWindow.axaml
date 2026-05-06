@@ -1,0 +1,200 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NetBuddies.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="640"
+        d:DesignHeight="740"
+        Width="640"
+        Height="740"
+        MinWidth="440"
+        MinHeight="560"
+        x:Class="NetBuddies.App.Views.GameWindow"
+        x:DataType="vm:GameSessionViewModel"
+        Title="{Binding Title}">
+
+    <Window.Styles>
+        <Style Selector="Button.cell">
+            <Setter Property="MinWidth" Value="20"/>
+            <Setter Property="MinHeight" Value="20"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NbMessageBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*"
+          Background="{DynamicResource NbPageBrush}">
+        <Border Background="{DynamicResource NbHeaderBrush}"
+                Padding="14"
+                BorderBrush="{DynamicResource NbHeaderBorderBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel>
+                    <TextBlock Text="{Binding GameName}"
+                               Foreground="White"
+                               FontSize="26"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="{Binding BuddyName}"
+                               Foreground="#E8F7FF"/>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="End Game"
+                        Command="{Binding EndGameCommand}"
+                        VerticalAlignment="Center"
+                        MinWidth="92"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Margin="12"
+                Background="{DynamicResource NbCardBrush}"
+                BorderBrush="{DynamicResource NbCardBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12">
+            <StackPanel Spacing="4">
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{DynamicResource NbTextBrush}"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding ScoreText}"
+                           Foreground="{DynamicResource NbSubtleTextBrush}"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2"
+                Margin="12"
+                Background="{DynamicResource NbPanelBrush}"
+                BorderBrush="{DynamicResource NbMessageBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="10"
+                BoxShadow="0 4 12 0 #660D3E65">
+            <Viewbox Stretch="Uniform">
+                <ItemsControl ItemsSource="{Binding Cells}"
+                              Width="460"
+                              Height="460">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="{Binding $parent[ItemsControl].DataContext.BoardSize}"
+                                         Columns="{Binding $parent[ItemsControl].DataContext.BoardSize}"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:GameCellViewModel">
+                            <Button Classes="cell"
+                                    Background="{Binding Background}"
+                                    IsEnabled="{Binding IsEnabled}"
+                                    Command="{Binding $parent[Window].DataContext.SelectCellCommand}"
+                                    CommandParameter="{Binding}"
+                                    Margin="2">
+                                <Viewbox Stretch="Uniform" Margin="5">
+                            <Grid Width="44" Height="44">
+                            <Grid HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  IsVisible="{Binding ShowX}">
+                                <Line StartPoint="9,9"
+                                      EndPoint="35,35"
+                                      Stroke="{Binding AccentBrush}"
+                                      StrokeThickness="8"
+                                      StrokeLineCap="Round"/>
+                                <Line StartPoint="35,9"
+                                      EndPoint="9,35"
+                                      Stroke="{Binding AccentBrush}"
+                                      StrokeThickness="8"
+                                      StrokeLineCap="Round"/>
+                                <Line StartPoint="13,13"
+                                      EndPoint="31,31"
+                                      Stroke="#E7F6FF"
+                                      StrokeThickness="2"
+                                      StrokeLineCap="Round"
+                                      Opacity="0.55"/>
+                            </Grid>
+
+                            <Grid HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  IsVisible="{Binding ShowO}">
+                                <Ellipse Stroke="{Binding AccentBrush}"
+                                         StrokeThickness="8"
+                                         Fill="Transparent"/>
+                                <Ellipse Stroke="#DFF2FF"
+                                         StrokeThickness="2"
+                                         Fill="Transparent"
+                                         Margin="6"/>
+                            </Grid>
+
+                            <Grid HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  IsVisible="{Binding ShowChecker}">
+                                <Ellipse Fill="{Binding PieceFill}"
+                                         Stroke="{Binding PieceStroke}"
+                                         StrokeThickness="3"/>
+                                <Ellipse Fill="Transparent"
+                                         Stroke="#FFFFFF"
+                                         StrokeThickness="2"
+                                         Opacity="0.35"
+                                         Margin="7"/>
+                                <Ellipse Fill="Transparent"
+                                         Stroke="{Binding PieceStroke}"
+                                         StrokeThickness="1"
+                                         Opacity="0.75"
+                                         Margin="13"/>
+                                <Grid IsVisible="{Binding ShowKing}">
+                                    <Polygon Points="11,27 15,16 21,25 27,16 33,27"
+                                             Fill="{Binding AccentBrush}"
+                                             Stroke="#5C4600"
+                                             StrokeThickness="1"/>
+                                    <Border Width="24"
+                                            Height="4"
+                                            Background="{Binding AccentBrush}"
+                                            BorderBrush="#5C4600"
+                                            BorderThickness="1"
+                                            VerticalAlignment="Bottom"
+                                            Margin="0,0,0,11"/>
+                                </Grid>
+                            </Grid>
+
+                            <Grid HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  IsVisible="{Binding ShowFlag}">
+                                <Border Width="4"
+                                        Height="30"
+                                        Background="#344055"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Top"
+                                        Margin="14,7,0,0"/>
+                                <Polygon Points="18,7 35,14 18,22"
+                                         Fill="{Binding AccentBrush}"
+                                         Stroke="#7A1E25"
+                                         StrokeThickness="1"/>
+                                <Border Width="27"
+                                        Height="5"
+                                        CornerRadius="2"
+                                        Background="#344055"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Bottom"
+                                        Margin="0,0,0,5"/>
+                            </Grid>
+
+                            <TextBlock Text="{Binding NumberText}"
+                                       Foreground="{Binding NumberBrush}"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding ShowNumber}"/>
+                            </Grid>
+                                </Viewbox>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Viewbox>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,318 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NetBuddies.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="390"
+        d:DesignHeight="820"
+        Width="390"
+        Height="820"
+        MinWidth="330"
+        MinHeight="620"
+        x:Class="NetBuddies.App.Views.BuddyListWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/netbuddies.ico"
+        Title="Net Buddies">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Window.Styles>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource NbCardBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NbCardBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource NbLinkBrush}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="4"/>
+        </Style>
+        <Style Selector="Button.tab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="FontSize" Value="22"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*"
+          Background="{DynamicResource NbPageBrush}">
+        <Border Background="{DynamicResource NbHeaderBrush}"
+                Padding="8"
+                BorderBrush="{DynamicResource NbHeaderBorderBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*">
+                <Image Source="/Assets/netbuddies-24.png"
+                       Width="24"
+                       Height="24"
+                       Stretch="Uniform"/>
+                <TextBlock Grid.Column="1"
+                           Text="Net Buddies"
+                           Foreground="White"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Margin="8,0,0,0"/>
+            </Grid>
+        </Border>
+
+        <Menu Grid.Row="1" Background="{DynamicResource NbPanelBrush}">
+            <MenuItem Header="_File">
+                <MenuItem Header="Disconnect" Command="{Binding DisconnectCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Contacts"/>
+            <MenuItem Header="_Actions">
+                <MenuItem Header="Create Chat Room" Click="CreateChatRoom_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Tools"/>
+            <MenuItem Header="_Settings">
+                <MenuItem Header="Theme">
+                    <MenuItem Header="Light" Click="LightTheme_Click"/>
+                    <MenuItem Header="Dark" Click="DarkTheme_Click"/>
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="_Help"/>
+        </Menu>
+
+        <ScrollViewer Grid.Row="2">
+            <StackPanel Margin="5" Spacing="5">
+                <Border Classes="card">
+                    <Grid ColumnDefinitions="104,*" ColumnSpacing="12">
+                        <Image Source="/Assets/netbuddies-128.png"
+                               Width="92"
+                               Height="74"
+                               Stretch="Uniform"
+                               VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Net Buddies"
+                                       Foreground="{DynamicResource NbTextBrush}"
+                                       FontSize="30"
+                                       FontWeight="Bold"/>
+                            <TextBlock Text="{Binding PersonalMessage}"
+                                       Foreground="{DynamicResource NbTextBrush}"
+                                       FontSize="16"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Classes="card">
+                    <Grid ColumnDefinitions="72,*" ColumnSpacing="10">
+                        <Border Width="58"
+                                Height="58"
+                                Background="#172B3B"
+                                BorderBrush="#07121C"
+                                BorderThickness="1"
+                                CornerRadius="7">
+                            <Grid>
+                                <Ellipse Width="28" Height="28" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,8,0,0"/>
+                                <Ellipse Width="42" Height="26" Fill="#38A1D6" VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                                <Image Source="{Binding ProfileImage}"
+                                       Stretch="UniformToFill"/>
+                            </Grid>
+                        </Border>
+
+                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding DisplayName}"
+                                       Foreground="{DynamicResource NbTextBrush}"
+                                       FontSize="22"
+                                       FontWeight="Bold"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding SelectedStatus}"
+                                           Foreground="#078C1F"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="v"
+                                           Foreground="#4479B2"
+                                           FontSize="13"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding PersonalMessage}"
+                                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                                       TextWrapping="Wrap"/>
+                            <ComboBox ItemsSource="{Binding StatusChoices}"
+                                      SelectedItem="{Binding SelectedStatus}"
+                                      MinWidth="120"
+                                      HorizontalAlignment="Left"/>
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="Edit"
+                                    Click="ChangePicture_Click"
+                                    VerticalAlignment="Top"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border Classes="card" Padding="8">
+                    <Grid ColumnDefinitions="*,*,*,*">
+                        <Button Classes="tab" Content="People" ToolTip.Tip="Contacts"/>
+                        <Button Grid.Column="1" Classes="tab" Content="Star" ToolTip.Tip="Favorites"/>
+                        <Button Grid.Column="2" Classes="tab" Content="Recent" ToolTip.Tip="Recent"/>
+                        <Button Grid.Column="3" Classes="tab" Content="Games" ToolTip.Tip="Games"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Chat Rooms"
+                                       Foreground="{DynamicResource NbTextBrush}"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Content="Create"
+                                    Click="CreateChatRoom_Click"/>
+                        </Grid>
+                        <TextBox Text="{Binding NewRoomName}"
+                                 PlaceholderText="Room name, e.g. Friday games"/>
+                        <ListBox ItemsSource="{Binding Rooms}"
+                                 SelectedItem="{Binding SelectedRoom}"
+                                 DoubleTapped="RoomList_DoubleTapped"
+                                 MaxHeight="120"
+                                 Background="{DynamicResource NbInputBrush}"
+                                 BorderBrush="{DynamicResource NbInputBorderBrush}"
+                                 BorderThickness="1">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ChatRoomListItemViewModel">
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          Margin="6"
+                                          ColumnSpacing="8">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource NbTextBrush}"/>
+                                            <TextBlock Text="{Binding Summary}"
+                                                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                                                       FontSize="12"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Content="Join"
+                                                Click="JoinRoom_Click"
+                                                VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card" Padding="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Text="{Binding SearchText}"
+                                 PlaceholderText="Search contacts..."
+                                 BorderThickness="0"
+                                 Background="{DynamicResource NbInputBrush}"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="Search"
+                                   FontSize="12"
+                                   Foreground="#7895B4"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,2,0"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="card" Padding="8">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding OnlineHeading}"
+                                   Foreground="{DynamicResource NbTextBrush}"
+                                   FontWeight="Bold"/>
+                        <ListBox x:Name="BuddyList"
+                                 ItemsSource="{Binding Buddies}"
+                                 SelectedItem="{Binding SelectedBuddy}"
+                                DoubleTapped="BuddyList_DoubleTapped"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 MinHeight="160">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:BuddyViewModel">
+                                    <Grid ColumnDefinitions="62,Auto,*"
+                                          Margin="4,5"
+                                          ColumnSpacing="8">
+                                        <Grid.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Send Message" Click="SendMessage_Click"/>
+                                                <MenuItem Header="Send File or Photo" Click="SendFile_Click"/>
+                                                <MenuItem Header="Nudge" Click="Nudge_Click"/>
+                                                <MenuItem Header="Play Game">
+                                                    <MenuItem Header="Tic Tac Toe" Click="PlayTicTacToe_Click"/>
+                                                    <MenuItem Header="Checkers" Click="PlayCheckers_Click"/>
+                                                    <MenuItem Header="Minesweeper Flags" Click="PlayMinesweeper_Click"/>
+                                                </MenuItem>
+                                            </ContextMenu>
+                                        </Grid.ContextMenu>
+                                        <Border Width="46"
+                                                Height="46"
+                                                Background="{DynamicResource NbAvatarBrush}"
+                                                BorderBrush="{DynamicResource NbAvatarBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="6">
+                                            <Grid>
+                                                <Ellipse Width="22" Height="22" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,6,0,0"/>
+                                                <Ellipse Width="32" Height="20" Fill="#2F9BE4" VerticalAlignment="Bottom" Margin="0,0,0,5"/>
+                                                <Image Source="{Binding ProfileImage}"
+                                                       Stretch="UniformToFill"/>
+                                            </Grid>
+                                        </Border>
+                                        <Ellipse Grid.Column="1"
+                                                 Width="14"
+                                                 Height="14"
+                                                 Fill="{Binding StatusBrush}"
+                                                 Stroke="#305B32"
+                                                 StrokeThickness="1"
+                                                 VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="{DynamicResource NbStrongTextBrush}"
+                                                       FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding Status}"
+                                                       Foreground="{DynamicResource NbStrongTextBrush}"/>
+                                            <TextBlock Text="{Binding PersonalMessage}"
+                                                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <TextBlock Text="Offline (0)"
+                                   Foreground="{DynamicResource NbTextBrush}"
+                                   FontWeight="Bold"
+                                   Margin="0,8,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="I want to..."
+                                   Foreground="{DynamicResource NbTextBrush}"
+                                   FontWeight="Bold"/>
+                        <Button Classes="link"
+                                Content="Add a Contact"/>
+                        <Button Classes="link"
+                                Content="Send a File or Photo"
+                                Command="{Binding OpenChatCommand}"
+                                CommandParameter="{Binding SelectedBuddy}"/>
+                        <Button Classes="link"
+                                Content="Start a Conversation"
+                                Command="{Binding OpenChatCommand}"
+                                CommandParameter="{Binding SelectedBuddy}"/>
+                        <Button Classes="link"
+                                Content="Play a Game"
+                                Click="PlayTicTacToe_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,4,0,8">
+                    <Ellipse Width="14" Height="14" Fill="#63C936" Stroke="#3D9C20" StrokeThickness="1"/>
+                    <TextBlock Text="Connected" Foreground="{DynamicResource NbTextBrush}"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
