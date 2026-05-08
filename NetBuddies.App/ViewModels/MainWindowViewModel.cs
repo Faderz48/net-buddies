@@ -22,6 +22,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private BuddyServer? _server;
     private BuddyClient? _client;
     private bool _isLoadingProfile;
+    private string _presenceSignature = "";
 
     public event Action<ConversationViewModel>? OpenConversationRequested;
     public event Action<GameSessionViewModel>? OpenGameRequested;
@@ -152,6 +153,10 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
         Buddies.Clear();
         Rooms.Clear();
+        SearchText = "";
+        _onlineProfiles = [];
+        _presenceSignature = "";
+        OnlineHeading = "Online (0)";
         _client = new BuddyClient();
         WireClientEvents(_client);
         StatusText = $"Connecting to {HostAddress}:{Port}...";
@@ -195,6 +200,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         Buddies.Clear();
         Rooms.Clear();
         _onlineProfiles = [];
+        _presenceSignature = "";
         OnlineHeading = "Online (0)";
         IsConnected = false;
         StatusText = IsHosting ? "Hosting, not joined" : "Offline";
@@ -344,7 +350,16 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                     .ToArray();
                 RefreshBuddyList();
                 RefreshConversationImages();
-                AddActivity($"{_onlineProfiles.Length} other buddy/buddies online.");
+                var presenceSignature = string.Join('\n', _onlineProfiles.Select(profile =>
+                    $"{profile.Name}|{profile.Status}|{profile.PersonalMessage}|{profile.ProfileImageBase64.Length}"));
+                if (!string.Equals(_presenceSignature, presenceSignature, StringComparison.Ordinal))
+                {
+                    _presenceSignature = presenceSignature;
+                    var buddyNames = string.Join(", ", _onlineProfiles.Select(profile => profile.Name));
+                    AddActivity(string.IsNullOrWhiteSpace(buddyNames)
+                        ? "No other buddies online."
+                        : $"{_onlineProfiles.Length} other buddy/buddies online: {buddyNames}.");
+                }
             });
         };
 

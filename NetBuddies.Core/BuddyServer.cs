@@ -15,6 +15,7 @@ public sealed class BuddyServer : IAsyncDisposable
     private readonly ConcurrentDictionary<IPAddress, ConnectionWindow> _connectionWindows = new();
     private TcpListener? _listener;
     private CancellationTokenSource? _serverTokenSource;
+    private Task? _presenceRefreshTask;
     private BuddyServerOptions _options = new();
 
     public event Action<string>? StatusChanged;
@@ -48,6 +49,7 @@ public sealed class BuddyServer : IAsyncDisposable
         }
 
         _ = AcceptClientsAsync(_serverTokenSource.Token);
+        _presenceRefreshTask = RefreshPresenceUntilStoppedAsync(_serverTokenSource.Token);
         return Task.CompletedTask;
     }
 
@@ -61,6 +63,19 @@ public sealed class BuddyServer : IAsyncDisposable
         _serverTokenSource?.Cancel();
         _listener?.Stop();
         _listener = null;
+
+        if (_presenceRefreshTask is not null)
+        {
+            try
+            {
+                await _presenceRefreshTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            _presenceRefreshTask = null;
+        }
 
         foreach (var session in _clients.Values)
         {
@@ -104,6 +119,29 @@ public sealed class BuddyServer : IAsyncDisposable
             catch (Exception ex)
             {
                 StatusChanged?.Invoke($"Server accept error: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task RefreshPresenceUntilStoppedAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                if (!_clients.IsEmpty)
+                {
+                    await BroadcastPresenceAsync();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                StatusChanged?.Invoke($"Presence refresh error: {ex.Message}");
             }
         }
     }
