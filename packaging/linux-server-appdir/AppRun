@@ -1,6 +1,11 @@
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
+GUI="$HERE/usr/bin/NetBuddies.Server.Gui"
 SERVER="$HERE/usr/bin/NetBuddies.Server"
+
+if [ -x "$GUI" ] && [ "$NETBUDDIES_SERVER_CLI" != "1" ]; then
+    exec "$GUI" "$@"
+fi
 
 if [ -t 0 ] || [ "$NETBUDDIES_SERVER_NO_TERMINAL" = "1" ]; then
     exec "$SERVER" "$@"

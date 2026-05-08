@@ -93,6 +93,15 @@ jobs:
           -p:PublishSingleFile=true
           --output publish/netbuddies-server-linux-x64
 
+      - name: Publish Linux server GUI
+        run: >
+          dotnet publish NetBuddies.Server.Gui/NetBuddies.Server.Gui.csproj
+          --configuration Release
+          --runtime linux-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          --output publish/netbuddies-server-gui-linux-x64
+
       - name: Create Linux server zip
         run: |
           cd publish/netbuddies-server-linux-x64
@@ -102,6 +111,7 @@ jobs:
         run: |
           mkdir -p publish/NetBuddiesServer.AppDir/usr/bin
           cp -r publish/netbuddies-server-linux-x64/* publish/NetBuddiesServer.AppDir/usr/bin/
+          cp -r publish/netbuddies-server-gui-linux-x64/* publish/NetBuddiesServer.AppDir/usr/bin/
           cp packaging/linux-server-appdir/AppRun publish/NetBuddiesServer.AppDir/AppRun
           cp packaging/linux-server-appdir/netbuddies-server.desktop publish/NetBuddiesServer.AppDir/netbuddies-server.desktop
           cp packaging/linux-server-appdir/netbuddies-server.svg publish/NetBuddiesServer.AppDir/netbuddies-server.svg

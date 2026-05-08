@@ -1,0 +1,209 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NetBuddies.Server.Gui.MainWindow"
+        Title="Net Buddies Server"
+        Width="760"
+        Height="720"
+        MinWidth="620"
+        MinHeight="560"
+        Background="#101A26">
+    <Window.Styles>
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="#172434"/>
+            <Setter Property="BorderBrush" Value="#365A79"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="#8CC9FF"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#1F8FE5"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*"
+          Background="#101A26">
+        <Border Background="#075A9F"
+                BorderBrush="#0A477A"
+                BorderThickness="0,0,0,1"
+                Padding="16">
+            <Grid ColumnDefinitions="Auto,*">
+                <Image Source="/Assets/netbuddies-64.png"
+                       Width="54"
+                       Height="54"
+                       Stretch="Uniform"/>
+                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="Net Buddies Server"
+                               Foreground="White"
+                               FontSize="28"
+                               FontWeight="Bold"/>
+                    <TextBlock x:Name="HeaderStatusText"
+                               Text="Ready to host"
+                               Foreground="#E8F7FF"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      Margin="14"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="12">
+                <Border Classes="panel">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Server"
+                                   Foreground="#E8F4FF"
+                                   FontSize="20"
+                                   FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="*,160,160" ColumnSpacing="10">
+                            <StackPanel>
+                                <TextBlock Text="BIND ADDRESS" Classes="label"/>
+                                <TextBox x:Name="BindAddressBox"
+                                         Text="0.0.0.0"
+                                         PlaceholderText="0.0.0.0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="SERVER PORT" Classes="label"/>
+                                <NumericUpDown x:Name="PortBox"
+                                               Value="5050"
+                                               Minimum="1"
+                                               Maximum="65535"
+                                               Increment="1"
+                                               MinWidth="150"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="PUBLIC TLS PORT" Classes="label"/>
+                                <NumericUpDown x:Name="StunnelPortBox"
+                                               Value="5051"
+                                               Minimum="1"
+                                               Maximum="65535"
+                                               Increment="1"
+                                               MinWidth="150"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="INVITE CODE" Classes="label"/>
+                        <TextBox x:Name="InviteCodeBox"
+                                 PasswordChar="*"
+                                 PlaceholderText="Optional"/>
+                        <TextBlock Text="TLS MODE" Classes="label"/>
+                        <ComboBox x:Name="TlsModeBox"
+                                  SelectedIndex="0"
+                                  HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="No TLS - private LAN or tunnel"/>
+                            <ComboBoxItem Content=".NET TLS - clients connect directly with Use TLS"/>
+                            <ComboBoxItem Content="stunnel - public TLS port forwards to local server"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="panel">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Certificates"
+                                   Foreground="#E8F4FF"
+                                   FontSize="20"
+                                   FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="*,180" ColumnSpacing="10">
+                            <StackPanel>
+                                <TextBlock Text="PFX CERTIFICATE FOR .NET TLS" Classes="label"/>
+                                <TextBox x:Name="PfxPathBox"
+                                         PlaceholderText="Select or generate a .pfx file"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="PFX PASSWORD" Classes="label"/>
+                                <TextBox x:Name="CertificatePasswordBox"
+                                         PasswordChar="*"
+                                         PlaceholderText="Password"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <StackPanel>
+                                <TextBlock Text="STUNNEL PEM CERTIFICATE" Classes="label"/>
+                                <TextBox x:Name="StunnelPemPathBox"
+                                         PlaceholderText="Generated PEM for stunnel"/>
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="Browse PFX"
+                                    Click="BrowsePfx_Click"
+                                    VerticalAlignment="Bottom"
+                                    MinWidth="110"/>
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                            <TextBox x:Name="CertificateHostBox"
+                                     PlaceholderText="Certificate name"
+                                     Text="netbuddies.local"/>
+                            <Button Grid.Column="1"
+                                    Content="Generate Certs"
+                                    Click="GenerateCertificates_Click"
+                                    MinWidth="130"/>
+                            <Button Grid.Column="2"
+                                    Content="Save stunnel config"
+                                    Click="SaveStunnelConfig_Click"
+                                    MinWidth="150"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="panel">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Controls"
+                                   Foreground="#E8F4FF"
+                                   FontSize="20"
+                                   FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                            <Button Content="Start Server"
+                                    Classes="primary"
+                                    Click="StartServer_Click"
+                                    MinHeight="42"/>
+                            <Button Grid.Column="1"
+                                    Content="Stop Server"
+                                    Click="StopServer_Click"
+                                    MinHeight="42"/>
+                            <Button Grid.Column="2"
+                                    Content="Open Cert Folder"
+                                    Click="OpenCertificateFolder_Click"
+                                    MinHeight="42"/>
+                        </Grid>
+                        <TextBlock x:Name="ConnectionHintText"
+                                   Foreground="#B9D0E4"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="panel">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="stunnel Config Preview"
+                                   Foreground="#E8F4FF"
+                                   FontSize="18"
+                                   FontWeight="Bold"/>
+                        <TextBox x:Name="StunnelConfigBox"
+                                 AcceptsReturn="True"
+                                 IsReadOnly="True"
+                                 MinHeight="130"
+                                 TextWrapping="NoWrap"
+                                 FontFamily="Consolas,monospace"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="panel">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Server Log"
+                                   Foreground="#E8F4FF"
+                                   FontSize="18"
+                                   FontWeight="Bold"/>
+                        <TextBox x:Name="LogBox"
+                                 AcceptsReturn="True"
+                                 IsReadOnly="True"
+                                 MinHeight="180"
+                                 TextWrapping="Wrap"
+                                 FontFamily="Consolas,monospace"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

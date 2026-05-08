@@ -2,4 +2,5 @@
   <Project Path="NetBuddies.App/NetBuddies.App.csproj" />
   <Project Path="NetBuddies.Core/NetBuddies.Core.csproj" />
   <Project Path="NetBuddies.Server/NetBuddies.Server.csproj" />
+  <Project Path="NetBuddies.Server.Gui/NetBuddies.Server.Gui.csproj" />
 </Solution>

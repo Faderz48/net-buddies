@@ -28,6 +28,8 @@ Net Buddies is a C#/.NET Avalonia  MSN-style instant messaging app.
 - Tic Tac Toe highlights the winning line and uses polished vector X/O marks.
 - Minesweeper Flags shows flag scoring, remaining flags, and expands empty safe areas.
 - A standalone server app is available for Windows and Linux hosting without opening the full client.
+- The Linux server AppImage opens a GUI server control panel for MX Linux and other desktop Linux hosts.
+- The server GUI can start/stop hosting, generate TLS certificates, load a PFX, and create/run stunnel TLS forwarding.
 - Private internet hosting can be done through Tailscale or Cloudflare Tunnel so the server is not exposed directly.
 - Secure direct hosting supports TLS 1.2/1.3 with a `.pfx` certificate plus an optional invite code.
 - Use `Actions > Create Chat Room` to create a shared room everyone on the server can join.
@@ -61,14 +63,21 @@ Published Windows server:
 NetBuddies.Server.exe --port 5050
 ```
 
-Published Linux server:
+Published Linux server GUI:
+
+```bash
+chmod +x ./NetBuddies-Server-x86_64.AppImage
+./NetBuddies-Server-x86_64.AppImage
+```
+
+Published Linux terminal server:
 
 ```bash
 ./NetBuddies.Server --port 5050
-./NetBuddies-Server-x86_64.AppImage --port 5050
+NETBUDDIES_SERVER_CLI=1 ./NetBuddies-Server-x86_64.AppImage --port 5050
 ```
 
-The standalone server accepts `/stop` in its terminal window for clean shutdown.
+The terminal server accepts `/stop` in its terminal window for clean shutdown.
 
 ## Internet Hosting
 
@@ -100,6 +109,17 @@ Linux AppImage secure server example:
 ```bash
 ./NetBuddies-Server-x86_64.AppImage --port 5050 --cert ./netbuddies-server.pfx --cert-password "change-this" --invite-code "friends-only"
 ```
+
+MX Linux with stunnel:
+
+1. Install stunnel with your package manager.
+2. Open `NetBuddies-Server-x86_64.AppImage`.
+3. Choose `stunnel - public TLS port forwards to local server`.
+4. Click `Generate Certs`.
+5. Confirm the server port and public TLS port.
+6. Click `Start Server`.
+
+Clients should connect to the public TLS port with `Use TLS` enabled. The GUI writes a stunnel config preview and can save the config beside the generated certificates.
 
 To test locally, run two copies of the app:
 

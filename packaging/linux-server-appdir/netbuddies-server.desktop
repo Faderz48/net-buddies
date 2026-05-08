@@ -4,5 +4,5 @@ Name=Net Buddies Server
 Comment=Host a Net Buddies chat and games server
 Exec=AppRun
 Icon=netbuddies-server
-Terminal=true
+Terminal=false
 Categories=Network;Chat;
