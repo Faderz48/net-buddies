@@ -116,7 +116,7 @@
                               SelectedItem="{Binding SelectedStatus}"
                               HorizontalAlignment="Stretch"/>
 
-                    <Grid ColumnDefinitions="*,108" ColumnSpacing="8">
+                    <Grid ColumnDefinitions="*,148" ColumnSpacing="10">
                         <StackPanel>
                             <TextBlock Text="SERVER ADDRESS" Classes="label"/>
                             <TextBox Text="{Binding HostAddress}"
@@ -127,7 +127,8 @@
                             <NumericUpDown Value="{Binding Port}"
                                            Minimum="1"
                                            Maximum="65535"
-                                           Increment="1"/>
+                                           Increment="1"
+                                           MinWidth="148"/>
                         </StackPanel>
                     </Grid>
 
