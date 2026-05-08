@@ -44,6 +44,9 @@ public partial class ChatRoomViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private double _microphoneLevel;
 
+    [ObservableProperty]
+    private bool _echoCancellationEnabled = true;
+
     [RelayCommand]
     private async Task SendMessageAsync()
     {
@@ -73,7 +76,10 @@ public partial class ChatRoomViewModel : ViewModelBase, IDisposable
 
         try
         {
-            _voiceChannel = new RoomVoiceChannel(_client, RoomName);
+            _voiceChannel = new RoomVoiceChannel(_client, RoomName)
+            {
+                EchoCancellationEnabled = EchoCancellationEnabled
+            };
             _voiceChannel.MicrophoneLevelChanged += level => Dispatcher.UIThread.Post(() => MicrophoneLevel = level);
             _voiceChannel.Start(SelectedMicrophone.DeviceNumber);
             IsVoiceConnected = true;
@@ -86,6 +92,32 @@ public partial class ChatRoomViewModel : ViewModelBase, IDisposable
             _voiceChannel = null;
             IsVoiceConnected = false;
             VoiceStatus = $"Voice failed: {ex.Message}";
+        }
+    }
+
+    partial void OnSelectedMicrophoneChanged(MicrophoneDeviceViewModel? value)
+    {
+        if (!IsVoiceConnected || _voiceChannel is null || value is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _voiceChannel.ChangeMicrophone(value.DeviceNumber);
+            VoiceStatus = $"Voice switched to {value.Name}.";
+        }
+        catch (Exception ex)
+        {
+            VoiceStatus = $"Could not change microphone: {ex.Message}";
+        }
+    }
+
+    partial void OnEchoCancellationEnabledChanged(bool value)
+    {
+        if (_voiceChannel is not null)
+        {
+            _voiceChannel.EchoCancellationEnabled = value;
         }
     }
 

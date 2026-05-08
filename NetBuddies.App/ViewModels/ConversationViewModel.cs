@@ -41,6 +41,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     public event Action<ConversationViewModel, NetBuddiesPacket>? ScreenShareAccepted;
     public event Action<ConversationViewModel, ScreenShareSource, int, int, int>? ScreenShareInviteRequested;
     public event Action<ChatAttentionKind>? AttentionRequested;
+    public event Action<string>? DownloadSaved;
 
     public ChatAttentionKind? PendingAttentionKind { get; private set; }
     public bool HasPendingAttention => PendingAttentionKind is not null;
@@ -80,6 +81,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private string _voiceNoteStatus = "";
+
+    [ObservableProperty]
+    private bool _echoCancellationEnabled = true;
 
     public ConversationViewModel(BuddyClient client, string buddyName, Func<string, Bitmap?> profileImageProvider)
     {
@@ -224,7 +228,10 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         try
         {
             _privateVoiceChannel = new RoomVoiceChannel((buffer, byteCount) =>
-                _client.SendPrivateVoiceAsync(BuddyName, buffer, byteCount));
+                _client.SendPrivateVoiceAsync(BuddyName, buffer, byteCount))
+            {
+                EchoCancellationEnabled = EchoCancellationEnabled
+            };
             _privateVoiceChannel.MicrophoneLevelChanged += level => Dispatcher.UIThread.Post(() => MicrophoneLevel = level);
             _privateVoiceChannel.Start(SelectedMicrophone.DeviceNumber);
             IsPrivateVoiceConnected = true;
@@ -498,6 +505,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             $"Received file: {packet.FileName} ({packet.FileSize:N0} bytes)",
             isMine: false,
             isEvent: true));
+        DownloadSaved?.Invoke(fullPath);
         return fullPath;
     }
 
@@ -518,6 +526,25 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             ? string.IsNullOrWhiteSpace(packet.Text) ? "GIPHY GIF" : packet.Text
             : packet.FileName;
         Messages.Add(CreateMessage(packet.From, label, isMine: false, inlineImageBytes: bytes));
+        SaveIncomingInlineMedia(packet, bytes);
+    }
+
+    private void SaveIncomingInlineMedia(NetBuddiesPacket packet, byte[] bytes)
+    {
+        var downloadsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "NetBuddiesDownloads",
+            "Images");
+        Directory.CreateDirectory(downloadsPath);
+
+        var fallbackName = packet.FileAction == "GifData"
+            ? $"giphy-{DateTime.Now:yyyyMMdd-HHmmss}.gif"
+            : $"image-{DateTime.Now:yyyyMMdd-HHmmss}.png";
+        var fileName = string.IsNullOrWhiteSpace(packet.FileName) ? fallbackName : packet.FileName;
+        var safeFileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars()));
+        var fullPath = Path.Combine(downloadsPath, safeFileName);
+        File.WriteAllBytes(fullPath, bytes);
+        DownloadSaved?.Invoke(fullPath);
     }
 
     private string SaveIncomingVoiceNote(NetBuddiesPacket packet)
@@ -540,6 +567,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             isMine: false,
             isEvent: true,
             voiceNotePath: fullPath));
+        DownloadSaved?.Invoke(fullPath);
         return fullPath;
     }
 
@@ -683,7 +711,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     private void AddRequest(string title, string detail, Func<Task> acceptAsync, Func<Task> declineAsync)
     {
-        PendingRequests.Insert(0, new ActivityRequestViewModel(title, detail, acceptAsync, declineAsync));
+        PendingRequests.Insert(0, new ActivityRequestViewModel(title, detail, acceptAsync, declineAsync, request => PendingRequests.Remove(request)));
 
         while (PendingRequests.Count > 4)
         {
@@ -729,6 +757,32 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         if (SelectedMicrophone is null)
         {
             PrivateVoiceStatus = "No microphone detected.";
+        }
+    }
+
+    partial void OnSelectedMicrophoneChanged(MicrophoneDeviceViewModel? value)
+    {
+        if (!IsPrivateVoiceConnected || _privateVoiceChannel is null || value is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _privateVoiceChannel.ChangeMicrophone(value.DeviceNumber);
+            PrivateVoiceStatus = $"Private voice switched to {value.Name}.";
+        }
+        catch (Exception ex)
+        {
+            PrivateVoiceStatus = $"Could not change microphone: {ex.Message}";
+        }
+    }
+
+    partial void OnEchoCancellationEnabledChanged(bool value)
+    {
+        if (_privateVoiceChannel is not null)
+        {
+            _privateVoiceChannel.EchoCancellationEnabled = value;
         }
     }
 

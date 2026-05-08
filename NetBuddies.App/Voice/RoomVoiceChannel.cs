@@ -10,8 +10,11 @@ public sealed class RoomVoiceChannel : IDisposable
     private WaveInEvent? _capture;
     private BufferedWaveProvider? _playbackBuffer;
     private WaveOutEvent? _playback;
+    private DateTimeOffset _lastRemoteAudioAt = DateTimeOffset.MinValue;
     private bool _isDisposed;
     public event Action<double>? MicrophoneLevelChanged;
+
+    public bool EchoCancellationEnabled { get; set; } = true;
 
     public RoomVoiceChannel(BuddyClient client, string roomName)
         : this((buffer, byteCount) => client.SendVoiceAsync(roomName, buffer, byteCount))
@@ -61,6 +64,27 @@ public sealed class RoomVoiceChannel : IDisposable
         _capture.StartRecording();
     }
 
+    public void ChangeMicrophone(int deviceNumber)
+    {
+        if (_capture is null)
+        {
+            Start(deviceNumber);
+            return;
+        }
+
+        _capture.DataAvailable -= Capture_DataAvailable;
+        _capture.StopRecording();
+        _capture.Dispose();
+        _capture = new WaveInEvent
+        {
+            DeviceNumber = deviceNumber,
+            WaveFormat = VoiceFormat,
+            BufferMilliseconds = 50
+        };
+        _capture.DataAvailable += Capture_DataAvailable;
+        _capture.StartRecording();
+    }
+
     public void Receive(NetBuddiesPacket packet)
     {
         if (_playbackBuffer is null || string.IsNullOrWhiteSpace(packet.PayloadBase64))
@@ -72,6 +96,7 @@ public sealed class RoomVoiceChannel : IDisposable
         {
             var bytes = Convert.FromBase64String(packet.PayloadBase64);
             _playbackBuffer.AddSamples(bytes, 0, bytes.Length);
+            _lastRemoteAudioAt = DateTimeOffset.UtcNow;
         }
         catch
         {
@@ -87,8 +112,25 @@ public sealed class RoomVoiceChannel : IDisposable
 
         var buffer = new byte[e.BytesRecorded];
         Buffer.BlockCopy(e.Buffer, 0, buffer, 0, e.BytesRecorded);
+        ApplyEchoSuppression(buffer);
         MicrophoneLevelChanged?.Invoke(CalculateLevel(buffer, buffer.Length));
         _ = _sendAudioAsync(buffer, buffer.Length);
+    }
+
+    private void ApplyEchoSuppression(byte[] buffer)
+    {
+        if (!EchoCancellationEnabled || DateTimeOffset.UtcNow - _lastRemoteAudioAt > TimeSpan.FromMilliseconds(350))
+        {
+            return;
+        }
+
+        for (var index = 0; index + 1 < buffer.Length; index += 2)
+        {
+            var sample = BitConverter.ToInt16(buffer, index);
+            var reduced = (short)(sample * 0.25);
+            buffer[index] = (byte)(reduced & 0xff);
+            buffer[index + 1] = (byte)((reduced >> 8) & 0xff);
+        }
     }
 
     private static double CalculateLevel(byte[] buffer, int byteCount)

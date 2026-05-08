@@ -1,4 +1,8 @@
+using System.Collections.Specialized;
+using System.Diagnostics;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.Platform.Storage;
 using NetBuddies.App.Services;
@@ -8,6 +12,8 @@ namespace NetBuddies.App.Views;
 
 public partial class ChatWindow : Window
 {
+    private ConversationViewModel? _hookedViewModel;
+
     public ChatWindow()
     {
         InitializeComponent();
@@ -25,12 +31,17 @@ public partial class ChatWindow : Window
 
     private void HookViewModel()
     {
+        UnhookViewModel();
         if (DataContext is ConversationViewModel viewModel)
         {
+            _hookedViewModel = viewModel;
             viewModel.NudgeReceived -= ShakeWindow;
             viewModel.NudgeReceived += ShakeWindow;
             viewModel.AttentionRequested -= HandleAttentionRequested;
             viewModel.AttentionRequested += HandleAttentionRequested;
+            viewModel.DownloadSaved -= ShowDownloadSavedPopup;
+            viewModel.DownloadSaved += ShowDownloadSavedPopup;
+            viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -45,11 +56,113 @@ public partial class ChatWindow : Window
 
     private void UnhookViewModel()
     {
-        if (DataContext is ConversationViewModel viewModel)
+        if (_hookedViewModel is ConversationViewModel viewModel)
         {
             viewModel.NudgeReceived -= ShakeWindow;
             viewModel.AttentionRequested -= HandleAttentionRequested;
+            viewModel.DownloadSaved -= ShowDownloadSavedPopup;
+            viewModel.Messages.CollectionChanged -= Messages_CollectionChanged;
+            _hookedViewModel = null;
         }
+    }
+
+    private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Reset)
+        {
+            Dispatcher.UIThread.Post(() => MessageScrollViewer.ScrollToEnd(), DispatcherPriority.Background);
+        }
+    }
+
+    private void MessageInput_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            return;
+        }
+
+        if (DataContext is ConversationViewModel viewModel && viewModel.SendMessageCommand.CanExecute(null))
+        {
+            e.Handled = true;
+            viewModel.SendMessageCommand.Execute(null);
+        }
+    }
+
+    private void ShowDownloadSavedPopup(string path)
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            var folder = Path.GetDirectoryName(path) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var fileName = Path.GetFileName(path);
+            var dialog = new Window
+            {
+                Title = "Net Buddies download",
+                Width = 420,
+                Height = 170,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                CanResize = false
+            };
+
+            dialog.Content = new StackPanel
+            {
+                Margin = new Avalonia.Thickness(16),
+                Spacing = 12,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = $"Saved {fileName}",
+                        FontWeight = Avalonia.Media.FontWeight.Bold,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = folder,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Spacing = 8,
+                        Children =
+                        {
+                            CreateOpenFolderButton(folder),
+                            CreateCloseButton(dialog)
+                        }
+                    }
+                }
+            };
+
+            await dialog.ShowDialog(this);
+        });
+    }
+
+    private static Button CreateOpenFolderButton(string folder)
+    {
+        var button = new Button { Content = "Open Folder" };
+        button.Click += (_, _) =>
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = folder,
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+            }
+        };
+        return button;
+    }
+
+    private static Button CreateCloseButton(Window dialog)
+    {
+        var button = new Button { Content = "Close" };
+        button.Click += (_, _) => dialog.Close();
+        return button;
     }
 
     private void HandleAttentionRequested(ChatAttentionKind kind)

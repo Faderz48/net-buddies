@@ -91,6 +91,10 @@
                                           Width="230"
                                           PlaceholderText="Select microphone"/>
                             </MenuItem>
+                            <MenuItem Header="Echo cancellation">
+                                <CheckBox Content="Enabled"
+                                          IsChecked="{Binding EchoCancellationEnabled}"/>
+                            </MenuItem>
                             <Separator/>
                             <MenuItem Header="Invite to Voice"
                                       Command="{Binding SendPrivateVoiceInviteCommand}"/>
@@ -120,7 +124,8 @@
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="MessageScrollViewer"
+                      Grid.Row="1"
                       Margin="12"
                       Background="{DynamicResource NbPanelBrush}">
             <ItemsControl ItemsSource="{Binding Messages}">
@@ -206,7 +211,7 @@
                                         CornerRadius="8"
                                         Padding="8"
                                         Margin="0,0,0,6">
-                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                                         <StackPanel>
                                             <TextBlock Text="{Binding Title}"
                                                        Foreground="{DynamicResource NbTextBrush}"
@@ -226,6 +231,10 @@
                                                 Content="Deny"
                                                 Command="{Binding DeclineCommand}"
                                                 IsEnabled="{Binding AreActionsEnabled}"/>
+                                        <Button Grid.Column="3"
+                                                Content="X"
+                                                Command="{Binding DismissCommand}"
+                                                MinWidth="34"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -237,10 +246,12 @@
                            Foreground="{DynamicResource NbSubtleTextBrush}"
                            FontStyle="Italic"
                            MinHeight="18"/>
-                <TextBox Text="{Binding DraftMessage}"
+                <TextBox x:Name="MessageInput"
+                         Text="{Binding DraftMessage}"
                          Grid.Row="2"
                          PlaceholderText="Type a message..."
                          AcceptsReturn="True"
+                         KeyDown="MessageInput_KeyDown"
                          MinHeight="78"
                          TextWrapping="Wrap"/>
 

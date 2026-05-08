@@ -52,7 +52,7 @@
               ColumnSpacing="12"
               RowSpacing="12">
             <Border Classes="panel">
-                <ScrollViewer>
+                <ScrollViewer x:Name="MessageScrollViewer">
                     <ItemsControl ItemsSource="{Binding Messages}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:RoomMessageLineViewModel">
@@ -125,6 +125,8 @@
                                       SelectedItem="{Binding SelectedMicrophone}"
                                       DisplayMemberBinding="{Binding Name}"
                                       PlaceholderText="Select microphone"/>
+                            <CheckBox Content="Echo cancellation"
+                                      IsChecked="{Binding EchoCancellationEnabled}"/>
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                                 <Button Content="Join Voice"
                                         Classes="primary"
@@ -160,9 +162,11 @@
                     Grid.ColumnSpan="2"
                     Classes="panel">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBox Text="{Binding DraftMessage}"
+                    <TextBox x:Name="MessageInput"
+                             Text="{Binding DraftMessage}"
                              PlaceholderText="Message this room..."
                              AcceptsReturn="True"
+                             KeyDown="MessageInput_KeyDown"
                              MinHeight="64"
                              TextWrapping="Wrap"/>
                     <Button Grid.Column="1"

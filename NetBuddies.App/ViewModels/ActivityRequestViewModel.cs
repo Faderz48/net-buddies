@@ -7,10 +7,12 @@ public sealed partial class ActivityRequestViewModel(
     string title,
     string detail,
     Func<Task> acceptAsync,
-    Func<Task> declineAsync) : ViewModelBase
+    Func<Task> declineAsync,
+    Action<ActivityRequestViewModel>? dismiss = null) : ViewModelBase
 {
     private readonly Func<Task> _acceptAsync = acceptAsync;
     private readonly Func<Task> _declineAsync = declineAsync;
+    private readonly Action<ActivityRequestViewModel>? _dismiss = dismiss;
 
     public string Title { get; } = title;
     public string Detail { get; } = detail;
@@ -50,5 +52,11 @@ public sealed partial class ActivityRequestViewModel(
         AreActionsEnabled = false;
         ResultText = "Declined";
         await _declineAsync();
+    }
+
+    [RelayCommand]
+    private void Dismiss()
+    {
+        _dismiss?.Invoke(this);
     }
 }
