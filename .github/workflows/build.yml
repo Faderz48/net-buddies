@@ -1,0 +1,131 @@
+name: Build Net Buddies
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build solution
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore NetBuddies.slnx
+
+      - name: Build
+        run: dotnet build NetBuddies.slnx --configuration Release --no-restore
+
+      - name: Publish Windows client
+        run: >
+          dotnet publish NetBuddies.App/NetBuddies.App.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output publish/win-x64-client-installer-files
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build Windows installer
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" packaging\netbuddies-client.iss'
+
+      - name: Zip Windows client
+        shell: pwsh
+        run: Compress-Archive -Path publish/win-x64-client-installer-files/* -DestinationPath publish/NetBuddies-win-x64.zip -Force
+
+      - name: Publish Windows server
+        run: >
+          dotnet publish NetBuddies.Server/NetBuddies.Server.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          --output publish/netbuddies-server-win-x64
+
+      - name: Zip Windows server
+        shell: pwsh
+        run: Compress-Archive -Path publish/netbuddies-server-win-x64/* -DestinationPath publish/NetBuddies-Server-win-x64.zip -Force
+
+      - name: Upload Windows build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-buddies-windows
+          path: |
+            publish/NetBuddies-Client-Setup.exe
+            publish/NetBuddies-win-x64.zip
+            publish/NetBuddies-Server-win-x64.zip
+
+  linux-server:
+    name: Build Linux server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish Linux server
+        run: >
+          dotnet publish NetBuddies.Server/NetBuddies.Server.csproj
+          --configuration Release
+          --runtime linux-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          --output publish/netbuddies-server-linux-x64
+
+      - name: Create Linux server zip
+        run: |
+          cd publish/netbuddies-server-linux-x64
+          zip -r ../NetBuddies-Server-linux-x64.zip .
+
+      - name: Build AppDir
+        run: |
+          mkdir -p publish/NetBuddiesServer.AppDir/usr/bin
+          cp -r publish/netbuddies-server-linux-x64/* publish/NetBuddiesServer.AppDir/usr/bin/
+          cp packaging/linux-server-appdir/AppRun publish/NetBuddiesServer.AppDir/AppRun
+          cp packaging/linux-server-appdir/netbuddies-server.desktop publish/NetBuddiesServer.AppDir/netbuddies-server.desktop
+          cp packaging/linux-server-appdir/netbuddies-server.svg publish/NetBuddiesServer.AppDir/netbuddies-server.svg
+          chmod +x publish/NetBuddiesServer.AppDir/AppRun
+          chmod +x publish/NetBuddiesServer.AppDir/usr/bin/NetBuddies.Server
+
+      - name: Create Linux AppDir zip
+        run: |
+          cd publish/NetBuddiesServer.AppDir
+          zip -r ../NetBuddies-Server-linux-x64-AppDir.zip .
+
+      - name: Download appimagetool
+        run: |
+          curl -L -o appimagetool-x86_64.AppImage https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+
+      - name: Build Linux AppImage
+        run: ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run publish/NetBuddiesServer.AppDir publish/NetBuddies-Server-x86_64.AppImage
+
+      - name: Upload Linux server artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-buddies-linux-server
+          path: |
+            publish/NetBuddies-Server-linux-x64.zip
+            publish/NetBuddies-Server-linux-x64-AppDir.zip
+            publish/NetBuddies-Server-x86_64.AppImage
