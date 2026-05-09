@@ -15,10 +15,12 @@ public partial class MainWindow : Window
     private readonly BuddyServer _server = new();
     private Process? _stunnelProcess;
     private string _lastStunnelConfigPath = "";
+    private bool _isInitialized;
 
     public MainWindow()
     {
         InitializeComponent();
+        _isInitialized = true;
         _server.StatusChanged += message => Dispatcher.UIThread.Post(() => AddLog(message));
         Closed += async (_, _) => await StopEverythingAsync();
         UpdateStunnelPreview();
@@ -345,11 +347,21 @@ public partial class MainWindow : Window
 
     private void UpdateStunnelPreview()
     {
+        if (!_isInitialized || StunnelConfigBox is null || PortBox is null || StunnelPortBox is null)
+        {
+            return;
+        }
+
         StunnelConfigBox.Text = BuildStunnelConfig(ReadPort(PortBox, 5050), ReadPort(StunnelPortBox, 5051));
     }
 
     private void TlsMode_Changed(object? sender, SelectionChangedEventArgs e)
     {
+        if (!_isInitialized)
+        {
+            return;
+        }
+
         UpdateStunnelPreview();
         if (CurrentTlsMode == ServerTlsMode.Stunnel)
         {
@@ -413,9 +425,9 @@ public partial class MainWindow : Window
         return "";
     }
 
-    private static int ReadPort(NumericUpDown control, int fallback)
+    private static int ReadPort(NumericUpDown? control, int fallback)
     {
-        return control.Value.HasValue
+        return control?.Value.HasValue == true
             ? Math.Clamp((int)control.Value.Value, 1, 65535)
             : fallback;
     }
