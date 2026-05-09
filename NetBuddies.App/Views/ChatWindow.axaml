@@ -199,7 +199,7 @@
                 BorderBrush="{DynamicResource NbMessageBorderBrush}"
                 BorderThickness="1,1,0,0"
                 Padding="12">
-            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                 <ScrollViewer MaxHeight="130"
                               VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding PendingRequests}">
@@ -241,21 +241,62 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+                <ScrollViewer Grid.Row="1"
+                              MaxHeight="120"
+                              VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding FileTransfers}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FileTransferViewModel">
+                                <Border Background="{DynamicResource NbInviteBrush}"
+                                        BorderBrush="{DynamicResource NbInviteBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="8"
+                                        Margin="0,0,0,6">
+                                    <Grid RowDefinitions="Auto,Auto"
+                                          ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="8"
+                                          RowSpacing="6">
+                                        <TextBlock Text="{Binding FileName}"
+                                                   Foreground="{DynamicResource NbTextBrush}"
+                                                   FontWeight="Bold"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <Button Grid.Column="1"
+                                                Content="X"
+                                                Command="{Binding DismissCommand}"
+                                                MinWidth="34"/>
+                                        <StackPanel Grid.Row="1"
+                                                    Grid.ColumnSpan="2"
+                                                    Spacing="4">
+                                            <ProgressBar Minimum="0"
+                                                         Maximum="100"
+                                                         Value="{Binding Progress}"
+                                                         Height="12"/>
+                                            <TextBlock Text="{Binding Summary}"
+                                                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
                 <TextBlock Text="{Binding TypingStatus}"
-                           Grid.Row="1"
+                           Grid.Row="2"
                            Foreground="{DynamicResource NbSubtleTextBrush}"
                            FontStyle="Italic"
                            MinHeight="18"/>
                 <TextBox x:Name="MessageInput"
                          Text="{Binding DraftMessage}"
-                         Grid.Row="2"
+                         Grid.Row="3"
                          PlaceholderText="Type a message..."
                          AcceptsReturn="True"
                          KeyDown="MessageInput_KeyDown"
                          MinHeight="78"
                          TextWrapping="Wrap"/>
 
-                <Grid Grid.Row="3"
+                <Grid Grid.Row="4"
                       ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto"
                       ColumnSpacing="8">
                     <Button Content="Nudge"
@@ -280,7 +321,7 @@
                             MinWidth="96"/>
                 </Grid>
 
-                <Grid Grid.Row="4"
+                <Grid Grid.Row="5"
                       ColumnDefinitions="*,90"
                       ColumnSpacing="8">
                     <StackPanel VerticalAlignment="Center">

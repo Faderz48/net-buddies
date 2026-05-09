@@ -1,4 +1,5 @@
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace NetBuddies.App.ViewModels;
@@ -54,6 +55,21 @@ public sealed partial class GameCellViewModel(int index) : ViewModelBase
     [ObservableProperty]
     private IBrush _accentBrush = Brushes.Transparent;
 
+    [ObservableProperty]
+    private bool _showImage;
+
+    [ObservableProperty]
+    private string _imageSource = "";
+
+    [ObservableProperty]
+    private string _tileImageSource = "";
+
+    [ObservableProperty]
+    private Bitmap? _pieceImage;
+
+    [ObservableProperty]
+    private Bitmap? _tileImage;
+
     public void ClearVisuals()
     {
         Text = "";
@@ -68,5 +84,10 @@ public sealed partial class GameCellViewModel(int index) : ViewModelBase
         PieceFill = Brushes.Transparent;
         PieceStroke = Brushes.Transparent;
         AccentBrush = Brushes.Transparent;
+        ShowImage = false;
+        ImageSource = "";
+        TileImageSource = "";
+        PieceImage = null;
+        TileImage = null;
     }
 }

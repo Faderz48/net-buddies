@@ -3,6 +3,7 @@ using System.Text.Json;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NetBuddies.App.Services;
 using NetBuddies.Core;
 
 namespace NetBuddies.App.ViewModels;
@@ -545,21 +546,40 @@ public partial class GameSessionViewModel : ViewModelBase
                     cell.Background = _winningCells.Contains(index)
                         ? new SolidColorBrush(Color.FromRgb(255, 234, 118))
                         : _ticTacToe[index] == 0 ? TicTacToeEmptyBrush : TicTacToeBoardBrush;
+                    cell.TileImage = GameAssetService.Load(_winningCells.Contains(index)
+                        ? "TicTacToe/tile-winning.png"
+                        : _ticTacToe[index] == 0
+                            ? "TicTacToe/tile-empty.png"
+                            : "TicTacToe/tile-played.png");
                     cell.AccentBrush = _ticTacToe[index] == 1 ? TicTacToeXBrush : TicTacToeOBrush;
-                    cell.ShowX = _ticTacToe[index] == 1;
-                    cell.ShowO = _ticTacToe[index] == 2;
+                    cell.ShowImage = _ticTacToe[index] != 0;
+                    cell.PieceImage = _ticTacToe[index] == 1
+                        ? GameAssetService.Load("TicTacToe/x-piece.png")
+                        : _ticTacToe[index] == 2
+                            ? GameAssetService.Load("TicTacToe/o-piece.png")
+                            : null;
                     break;
                 case NetBuddiesGameType.Checkers:
                     cell.Background = (Row(index) + Column(index)) % 2 == 0
                         ? CheckerLightSquare
                         : CheckerDarkSquare;
+                    cell.TileImage = GameAssetService.Load((Row(index) + Column(index)) % 2 == 0
+                        ? "Checkers/tile-light.png"
+                        : "Checkers/tile-dark.png");
                     if (index == _selectedChecker)
                     {
                         cell.Background = CheckerSelectedSquare;
+                        cell.TileImage = GameAssetService.Load("Checkers/tile-selected.png");
                     }
 
-                    cell.ShowChecker = _checkers[index] != 0;
+                    cell.ShowImage = _checkers[index] != 0;
                     cell.ShowKing = _checkers[index] is 3 or 4;
+                    cell.PieceImage = _checkers[index] switch
+                    {
+                        1 or 3 => GameAssetService.Load("Checkers/checker-red.png"),
+                        2 or 4 => GameAssetService.Load("Checkers/checker-black.png"),
+                        _ => null
+                    };
                     cell.PieceFill = _checkers[index] is 1 or 3 ? CheckerLocalPiece : CheckerRemotePiece;
                     cell.PieceStroke = _checkers[index] is 1 or 3 ? CheckerLocalStroke : CheckerRemoteStroke;
                     cell.AccentBrush = OwnsChecker(index)
@@ -570,7 +590,13 @@ public partial class GameSessionViewModel : ViewModelBase
                     cell.Background = _revealed[index]
                         ? MineOpenBrush
                         : (Row(index) + Column(index)) % 2 == 0 ? MineCoveredBrush : MineCoveredAltBrush;
-                    cell.ShowFlag = _revealed[index] && _mines[index];
+                    cell.TileImage = GameAssetService.Load(_revealed[index]
+                        ? "MinesweeperFlags/tile-open.png"
+                        : (Row(index) + Column(index)) % 2 == 0
+                            ? "MinesweeperFlags/tile-covered.png"
+                            : "MinesweeperFlags/tile-covered-alt.png");
+                    cell.ShowImage = _revealed[index] && _mines[index];
+                    cell.PieceImage = cell.ShowImage ? GameAssetService.Load("MinesweeperFlags/flag.png") : null;
                     cell.AccentBrush = MineFlagBrush;
                     var adjacentMines = CountAdjacentMines(index);
                     cell.ShowNumber = _revealed[index] && !_mines[index] && adjacentMines > 0;

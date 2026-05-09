@@ -16,11 +16,62 @@ public enum ChatAttentionKind
     Nudge
 }
 
+public sealed partial class FileTransferViewModel(string transferId, Action<FileTransferViewModel> dismiss) : ViewModelBase
+{
+    private readonly Action<FileTransferViewModel> _dismiss = dismiss;
+
+    public string TransferId { get; } = transferId;
+
+    [ObservableProperty]
+    private string _fileName = "";
+
+    [ObservableProperty]
+    private long _fileSize;
+
+    [ObservableProperty]
+    private long _bytesTransferred;
+
+    [ObservableProperty]
+    private string _status = "";
+
+    public double Progress => FileSize <= 0
+        ? 0
+        : Math.Clamp(BytesTransferred * 100.0 / FileSize, 0, 100);
+
+    public string Summary => FileSize <= 0
+        ? Status
+        : $"{Status} - {BytesTransferred:N0} / {FileSize:N0} bytes";
+
+    partial void OnFileSizeChanged(long value)
+    {
+        OnPropertyChanged(nameof(Progress));
+        OnPropertyChanged(nameof(Summary));
+    }
+
+    partial void OnBytesTransferredChanged(long value)
+    {
+        OnPropertyChanged(nameof(Progress));
+        OnPropertyChanged(nameof(Summary));
+    }
+
+    partial void OnStatusChanged(string value)
+    {
+        OnPropertyChanged(nameof(Summary));
+    }
+
+    [RelayCommand]
+    private void Dismiss()
+    {
+        _dismiss(this);
+    }
+}
+
 public partial class ConversationViewModel : ViewModelBase, IDisposable
 {
     private readonly BuddyClient _client;
     private readonly Func<string, Bitmap?> _profileImageProvider;
     private readonly Dictionary<string, string> _pendingOutgoingFiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IncomingFileTransfer> _incomingFiles = new(StringComparer.OrdinalIgnoreCase);
     private RoomVoiceChannel? _privateVoiceChannel;
     private WaveInEvent? _voiceNoteCapture;
     private WaveFileWriter? _voiceNoteWriter;
@@ -33,6 +84,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     public ObservableCollection<MessageLineViewModel> Messages { get; } = [];
     public ObservableCollection<MicrophoneDeviceViewModel> Microphones { get; } = [];
     public ObservableCollection<ActivityRequestViewModel> PendingRequests { get; } = [];
+    public ObservableCollection<FileTransferViewModel> FileTransfers { get; } = [];
     public event Action? NudgeReceived;
     public event Action<ConversationViewModel, NetBuddiesGameType>? GameRequested;
     public event Action<ConversationViewModel, string>? RoomInviteRequested;
@@ -133,6 +185,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         var transferId = Guid.NewGuid().ToString("N");
         var fileName = Path.GetFileName(path);
         _pendingOutgoingFiles[transferId] = path;
+        AddOrUpdateTransfer(transferId, fileName, new FileInfo(path).Length, "Waiting for accept", 0);
         Messages.Add(CreateMessage("Me", $"File offer sent: {fileName}", isMine: true, isEvent: true));
         await _client.SendFileOfferAsync(BuddyName, transferId, path);
     }
@@ -473,18 +526,49 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
                 {
                     _pendingOutgoingFiles.Remove(packet.TransferId);
                     Messages.Add(CreateMessage("Net Buddies", $"{packet.From} accepted {Path.GetFileName(path)}. Sending now.", isMine: true, isEvent: true));
-                    _ = _client.SendFileDataAsync(packet.From, packet.TransferId, path);
+                    AddOrUpdateTransfer(packet.TransferId, Path.GetFileName(path), new FileInfo(path).Length, "Sending", 0);
+                    _ = SendAcceptedFileAsync(packet.From, packet.TransferId, path);
                 }
 
                 return null;
             case "Decline":
                 _pendingOutgoingFiles.Remove(packet.TransferId);
+                RemoveTransfer(packet.TransferId);
                 Messages.Add(CreateMessage("Net Buddies", $"{packet.From} declined file: {packet.FileName}", isMine: false, isEvent: true));
                 return null;
             case "Data":
                 return SaveIncomingFile(packet);
+            case "DataStart":
+                StartIncomingFile(packet);
+                return null;
+            case "DataChunk":
+                ReceiveIncomingFileChunk(packet);
+                return null;
+            case "DataEnd":
+                return FinishIncomingFile(packet);
             default:
                 return null;
+        }
+    }
+
+    private async Task SendAcceptedFileAsync(string to, string transferId, string path)
+    {
+        try
+        {
+            var fileInfo = new FileInfo(path);
+            var progress = new Progress<long>(sent =>
+            {
+                Dispatcher.UIThread.Post(() =>
+                    AddOrUpdateTransfer(transferId, fileInfo.Name, fileInfo.Length, "Sending", sent));
+            });
+            await _client.SendFileDataAsync(to, transferId, path, progress);
+            AddOrUpdateTransfer(transferId, fileInfo.Name, fileInfo.Length, "Sent", fileInfo.Length);
+            Messages.Add(CreateMessage("Net Buddies", $"Finished sending {Path.GetFileName(path)}.", isMine: true, isEvent: true));
+        }
+        catch (Exception ex)
+        {
+            AddOrUpdateTransfer(transferId, Path.GetFileName(path), 0, $"Send failed: {ex.Message}", 0);
+            Messages.Add(CreateMessage("Net Buddies", $"Could not send {Path.GetFileName(path)}: {ex.Message}", isMine: true, isEvent: true));
         }
     }
 
@@ -507,6 +591,108 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             isEvent: true));
         DownloadSaved?.Invoke(fullPath);
         return fullPath;
+    }
+
+    private void StartIncomingFile(NetBuddiesPacket packet)
+    {
+        CloseIncomingFile(packet.TransferId);
+
+        var fullPath = CreateDownloadPath(packet.FileName);
+        var transfer = new IncomingFileTransfer(
+            packet.FileName,
+            fullPath,
+            File.Open(fullPath, FileMode.Create, FileAccess.Write, FileShare.Read),
+            packet.FileSize);
+        _incomingFiles[packet.TransferId] = transfer;
+        AddOrUpdateTransfer(packet.TransferId, packet.FileName, packet.FileSize, "Receiving", 0);
+        Messages.Add(CreateMessage(
+            "Net Buddies",
+            $"Receiving file: {packet.FileName} ({packet.FileSize:N0} bytes)",
+            isMine: false,
+            isEvent: true));
+    }
+
+    private void ReceiveIncomingFileChunk(NetBuddiesPacket packet)
+    {
+        if (!_incomingFiles.TryGetValue(packet.TransferId, out var transfer)
+            || string.IsNullOrWhiteSpace(packet.PayloadBase64))
+        {
+            return;
+        }
+
+        var bytes = Convert.FromBase64String(packet.PayloadBase64);
+        transfer.Stream.Write(bytes, 0, bytes.Length);
+        transfer.BytesReceived += bytes.Length;
+        AddOrUpdateTransfer(packet.TransferId, transfer.FileName, transfer.FileSize, "Receiving", transfer.BytesReceived);
+    }
+
+    private string? FinishIncomingFile(NetBuddiesPacket packet)
+    {
+        if (!_incomingFiles.Remove(packet.TransferId, out var transfer))
+        {
+            return null;
+        }
+
+        transfer.Stream.Dispose();
+        AddOrUpdateTransfer(packet.TransferId, transfer.FileName, transfer.FileSize, $"Saved to {transfer.FullPath}", transfer.FileSize);
+        Messages.Add(CreateMessage(
+            packet.From,
+            $"Received file: {transfer.FileName} ({transfer.BytesReceived:N0} bytes)",
+            isMine: false,
+            isEvent: true));
+        DownloadSaved?.Invoke(transfer.FullPath);
+        return transfer.FullPath;
+    }
+
+    private void CloseIncomingFile(string transferId)
+    {
+        if (_incomingFiles.Remove(transferId, out var transfer))
+        {
+            transfer.Stream.Dispose();
+        }
+    }
+
+    private void AddOrUpdateTransfer(string transferId, string fileName, long fileSize, string status, long bytesTransferred)
+    {
+        var transfer = FileTransfers.FirstOrDefault(item => item.TransferId == transferId);
+        if (transfer is null)
+        {
+            transfer = new FileTransferViewModel(transferId, request => FileTransfers.Remove(request));
+            FileTransfers.Insert(0, transfer);
+        }
+
+        transfer.FileName = fileName;
+        transfer.FileSize = Math.Max(fileSize, bytesTransferred);
+        transfer.BytesTransferred = Math.Min(bytesTransferred, transfer.FileSize);
+        transfer.Status = status;
+    }
+
+    private void RemoveTransfer(string transferId)
+    {
+        var transfer = FileTransfers.FirstOrDefault(item => item.TransferId == transferId);
+        if (transfer is not null)
+        {
+            FileTransfers.Remove(transfer);
+        }
+    }
+
+    private static string CreateDownloadPath(string fileName)
+    {
+        var safeFileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars()));
+        var downloadsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "NetBuddiesDownloads");
+        Directory.CreateDirectory(downloadsPath);
+
+        var fullPath = Path.Combine(downloadsPath, safeFileName);
+        if (!File.Exists(fullPath))
+        {
+            return fullPath;
+        }
+
+        var name = Path.GetFileNameWithoutExtension(safeFileName);
+        var extension = Path.GetExtension(safeFileName);
+        return Path.Combine(downloadsPath, $"{name}-{DateTime.Now:yyyyMMdd-HHmmss}{extension}");
     }
 
     private void AddInlineMediaMessage(NetBuddiesPacket packet)
@@ -803,5 +989,24 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     {
         CleanupVoiceNoteRecorder();
         StopPrivateVoice();
+        foreach (var transfer in _incomingFiles.Values)
+        {
+            transfer.Stream.Dispose();
+        }
+
+        _incomingFiles.Clear();
+    }
+
+    private sealed class IncomingFileTransfer(
+        string fileName,
+        string fullPath,
+        FileStream stream,
+        long fileSize)
+    {
+        public string FileName { get; } = fileName;
+        public string FullPath { get; } = fullPath;
+        public FileStream Stream { get; } = stream;
+        public long FileSize { get; } = fileSize;
+        public long BytesReceived { get; set; }
     }
 }

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Net Buddies
+Exec=NetBuddies.App
+Icon=netbuddies-client
+Categories=Network;Chat;
+Terminal=false

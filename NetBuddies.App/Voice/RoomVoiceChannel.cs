@@ -6,6 +6,7 @@ namespace NetBuddies.App.Voice;
 public sealed class RoomVoiceChannel : IDisposable
 {
     private static readonly WaveFormat VoiceFormat = new(16000, 16, 1);
+    private const int CaptureBufferMilliseconds = 20;
     private readonly Func<byte[], int, Task> _sendAudioAsync;
     private WaveInEvent? _capture;
     private BufferedWaveProvider? _playbackBuffer;
@@ -47,10 +48,14 @@ public sealed class RoomVoiceChannel : IDisposable
 
         _playbackBuffer = new BufferedWaveProvider(VoiceFormat)
         {
-            BufferDuration = TimeSpan.FromSeconds(2),
+            BufferDuration = TimeSpan.FromMilliseconds(250),
             DiscardOnBufferOverflow = true
         };
-        _playback = new WaveOutEvent();
+        _playback = new WaveOutEvent
+        {
+            DesiredLatency = 60,
+            NumberOfBuffers = 2
+        };
         _playback.Init(_playbackBuffer);
         _playback.Play();
 
@@ -58,7 +63,8 @@ public sealed class RoomVoiceChannel : IDisposable
         {
             DeviceNumber = deviceNumber,
             WaveFormat = VoiceFormat,
-            BufferMilliseconds = 50
+            BufferMilliseconds = CaptureBufferMilliseconds,
+            NumberOfBuffers = 2
         };
         _capture.DataAvailable += Capture_DataAvailable;
         _capture.StartRecording();
@@ -79,7 +85,8 @@ public sealed class RoomVoiceChannel : IDisposable
         {
             DeviceNumber = deviceNumber,
             WaveFormat = VoiceFormat,
-            BufferMilliseconds = 50
+            BufferMilliseconds = CaptureBufferMilliseconds,
+            NumberOfBuffers = 2
         };
         _capture.DataAvailable += Capture_DataAvailable;
         _capture.StartRecording();

@@ -92,12 +92,16 @@
                                  PlaceholderText="Optional"/>
                         <TextBlock Text="TLS MODE" Classes="label"/>
                         <ComboBox x:Name="TlsModeBox"
-                                  SelectedIndex="0"
-                                  HorizontalAlignment="Stretch">
+                                  SelectedIndex="2"
+                                  HorizontalAlignment="Stretch"
+                                  SelectionChanged="TlsMode_Changed">
                             <ComboBoxItem Content="No TLS - private LAN or tunnel"/>
                             <ComboBoxItem Content=".NET TLS - clients connect directly with Use TLS"/>
-                            <ComboBoxItem Content="stunnel - public TLS port forwards to local server"/>
+                            <ComboBoxItem Content="Easy TLS with stunnel - recommended for internet hosting"/>
                         </ComboBox>
+                        <TextBlock Text="Recommended: Easy TLS with stunnel. Clients connect to the public TLS port with Use TLS enabled."
+                                   Foreground="#B9D0E4"
+                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
@@ -120,13 +124,18 @@
                                          PlaceholderText="Password"/>
                             </StackPanel>
                         </Grid>
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                             <StackPanel>
                                 <TextBlock Text="STUNNEL PEM CERTIFICATE" Classes="label"/>
                                 <TextBox x:Name="StunnelPemPathBox"
                                          PlaceholderText="Generated PEM for stunnel"/>
                             </StackPanel>
                             <Button Grid.Column="1"
+                                    Content="Browse PEM"
+                                    Click="BrowsePem_Click"
+                                    VerticalAlignment="Bottom"
+                                    MinWidth="110"/>
+                            <Button Grid.Column="2"
                                     Content="Browse PFX"
                                     Click="BrowsePfx_Click"
                                     VerticalAlignment="Bottom"
@@ -145,6 +154,24 @@
                                     Click="SaveStunnelConfig_Click"
                                     MinWidth="150"/>
                         </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                            <Button Content="Quick TLS Setup"
+                                    Classes="primary"
+                                    Click="QuickTlsSetup_Click"
+                                    MinHeight="38"/>
+                            <Button Grid.Column="1"
+                                    Content="Check stunnel"
+                                    Click="CheckStunnel_Click"
+                                    MinWidth="120"/>
+                            <Button Grid.Column="2"
+                                    Content="Copy install command"
+                                    Click="CopyInstallCommand_Click"
+                                    MinWidth="165"/>
+                        </Grid>
+                        <TextBlock x:Name="TlsSetupStatusText"
+                                   Text="Quick TLS Setup generates certs, saves a stunnel config, and prepares secure hosting."
+                                   Foreground="#B9D0E4"
+                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 

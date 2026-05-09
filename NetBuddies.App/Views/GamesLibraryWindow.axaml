@@ -1,0 +1,116 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="440"
+        Height="430"
+        MinWidth="360"
+        MinHeight="360"
+        x:Class="NetBuddies.App.Views.GamesLibraryWindow"
+        Icon="/Assets/netbuddies.ico"
+        Title="Net Buddies Games">
+
+    <Window.Styles>
+        <Style Selector="Border.gameCard">
+            <Setter Property="Background" Value="{DynamicResource NbCardBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NbCardBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+        <Style Selector="Border.gameIcon">
+            <Setter Property="Width" Value="58"/>
+            <Setter Property="Height" Value="58"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NbMessageBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          Background="{DynamicResource NbPageBrush}">
+        <Border Background="{DynamicResource NbHeaderBrush}"
+                Padding="14"
+                BorderBrush="{DynamicResource NbHeaderBorderBrush}"
+                BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock Text="Games"
+                           Foreground="White"
+                           FontSize="26"
+                           FontWeight="Bold"/>
+                <TextBlock Text="Pick a buddy in the main list, then start a game from chat."
+                           Foreground="#E8F7FF"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      Margin="12"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="10">
+                <Border Classes="gameCard">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Border Classes="gameIcon" Background="#F4FAFF">
+                            <Image x:Name="TicTacToeIcon"
+                                   Stretch="UniformToFill"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Tic Tac Toe"
+                                       Foreground="{DynamicResource NbStrongTextBrush}"
+                                       FontSize="18"
+                                       FontWeight="Bold"/>
+                            <TextBlock Text="Classic quick match with polished X and O pieces."
+                                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Classes="gameCard">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Border Classes="gameIcon" Background="#FFF8E7">
+                            <Image x:Name="CheckersIcon"
+                                   Stretch="UniformToFill"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Checkers"
+                                       Foreground="{DynamicResource NbStrongTextBrush}"
+                                       FontSize="18"
+                                       FontWeight="Bold"/>
+                            <TextBlock Text="Board game battles with captures, turns, and kings."
+                                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Classes="gameCard">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Border Classes="gameIcon" Background="#EAF7EF">
+                            <Image x:Name="MinesweeperFlagsIcon"
+                                   Stretch="UniformToFill"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Minesweeper Flags"
+                                       Foreground="{DynamicResource NbStrongTextBrush}"
+                                       FontSize="18"
+                                       FontWeight="Bold"/>
+                            <TextBlock Text="MSN-style flag race on a larger grid."
+                                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Background="{DynamicResource NbPanelBrush}"
+                BorderBrush="{DynamicResource NbMessageBorderBrush}"
+                BorderThickness="1,1,0,0"
+                Padding="12">
+            <Button Content="Close"
+                    HorizontalAlignment="Right"
+                    MinWidth="96"
+                    Click="Close_Click"/>
+        </Border>
+    </Grid>
+</Window>

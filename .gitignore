@@ -5,9 +5,16 @@ obj/
 .vscode/
 .tools/
 publish/
+/AppDir/
+/ServerAppDir/
+/appimagetool.AppImage
+/NetBuddies-*.AppImage
+/installer/
 *.user
 *.suo
 *.log
 *.tmp
 TestResults/
 artifacts/**/*.tmp
+artifacts/latest/NetBuddies-win-x64-*.zip
+/netbuddies_installer.iss

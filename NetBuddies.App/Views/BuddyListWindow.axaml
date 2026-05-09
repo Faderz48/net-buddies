@@ -148,12 +148,13 @@
                 </Border>
 
                 <Border Classes="card" Padding="8">
-                    <Grid ColumnDefinitions="*,*,*,*">
-                        <Button Classes="tab" Content="People" ToolTip.Tip="Contacts"/>
-                        <Button Grid.Column="1" Classes="tab" Content="Star" ToolTip.Tip="Favorites"/>
-                        <Button Grid.Column="2" Classes="tab" Content="Recent" ToolTip.Tip="Recent"/>
-                        <Button Grid.Column="3" Classes="tab" Content="Games" ToolTip.Tip="Games"/>
-                    </Grid>
+                    <Button Content="Games"
+                            FontSize="18"
+                            FontWeight="SemiBold"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Padding="10"
+                            Click="GamesLibrary_Click"/>
                 </Border>
 
                 <Border Classes="card">
@@ -231,7 +232,8 @@
                                 <DataTemplate x:DataType="vm:BuddyViewModel">
                                     <Grid ColumnDefinitions="62,Auto,*"
                                           Margin="4,5"
-                                          ColumnSpacing="8">
+                                          ColumnSpacing="8"
+                                          PointerPressed="BuddyItem_PointerPressed">
                                         <Grid.ContextMenu>
                                             <ContextMenu>
                                                 <MenuItem Header="Send Message" Click="SendMessage_Click"/>

@@ -8,6 +8,7 @@ namespace NetBuddies.Core;
 
 public sealed class BuddyClient : IAsyncDisposable
 {
+    private const int FileChunkSize = 48 * 1024;
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private TcpClient? _client;
     private Stream? _transportStream;
@@ -200,19 +201,55 @@ public sealed class BuddyClient : IAsyncDisposable
         });
     }
 
-    public async Task SendFileDataAsync(string to, string transferId, string path, CancellationToken cancellationToken = default)
+    public async Task SendFileDataAsync(
+        string to,
+        string transferId,
+        string path,
+        IProgress<long>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+        var fileInfo = new FileInfo(path);
         await SendAsync(new NetBuddiesPacket
         {
             Kind = PacketKind.FileData,
             From = DisplayName,
             To = to,
-            FileAction = "Data",
+            FileAction = "DataStart",
             TransferId = transferId,
-            FileName = Path.GetFileName(path),
-            FileSize = bytes.LongLength,
-            PayloadBase64 = Convert.ToBase64String(bytes)
+            FileName = fileInfo.Name,
+            FileSize = fileInfo.Length
+        });
+
+        await using var stream = File.OpenRead(path);
+        var buffer = new byte[FileChunkSize];
+        int read;
+        long sent = 0;
+        while ((read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+        {
+            await SendAsync(new NetBuddiesPacket
+            {
+                Kind = PacketKind.FileData,
+                From = DisplayName,
+                To = to,
+                FileAction = "DataChunk",
+                TransferId = transferId,
+                FileName = fileInfo.Name,
+                FileSize = fileInfo.Length,
+                PayloadBase64 = Convert.ToBase64String(buffer, 0, read)
+            });
+            sent += read;
+            progress?.Report(sent);
+        }
+
+        await SendAsync(new NetBuddiesPacket
+        {
+            Kind = PacketKind.FileData,
+            From = DisplayName,
+            To = to,
+            FileAction = "DataEnd",
+            TransferId = transferId,
+            FileName = fileInfo.Name,
+            FileSize = fileInfo.Length
         });
     }
 

@@ -15,6 +15,7 @@ public sealed partial class ScreenShareViewModel : ViewModelBase, IDisposable
     private readonly int _frameRate;
     private readonly int _jpegQuality;
     private readonly CancellationTokenSource _captureTokenSource = new();
+    private long _receivedFrameVersion;
 
     public string SessionId { get; }
     public string BuddyName { get; }
@@ -57,16 +58,13 @@ public sealed partial class ScreenShareViewModel : ViewModelBase, IDisposable
 
     public void ReceiveFrame(NetBuddiesPacket packet)
     {
-        try
+        if (string.IsNullOrWhiteSpace(packet.PayloadBase64))
         {
-            var bytes = Convert.FromBase64String(packet.PayloadBase64);
-            CurrentFrame = new Bitmap(new MemoryStream(bytes));
-            StatusText = $"Watching {BuddyName}'s screen share.";
+            return;
         }
-        catch
-        {
-            StatusText = "Could not show a screen share frame.";
-        }
+
+        var version = Interlocked.Increment(ref _receivedFrameVersion);
+        _ = DecodeLatestFrameAsync(packet.PayloadBase64, version);
     }
 
     public async Task StopAsync(bool notifyBuddy = true)
@@ -112,12 +110,8 @@ public sealed partial class ScreenShareViewModel : ViewModelBase, IDisposable
                     cancellationToken);
 #pragma warning restore CA1416
 
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    CurrentFrame = new Bitmap(new MemoryStream(frame));
-                });
-
                 await _client.SendScreenShareFrameAsync(BuddyName, SessionId, frame);
+                _ = DecodeLatestFrameAsync(Convert.ToBase64String(frame), Interlocked.Increment(ref _receivedFrameVersion));
             }
             catch (OperationCanceledException)
             {
@@ -146,9 +140,44 @@ public sealed partial class ScreenShareViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private async Task DecodeLatestFrameAsync(string payloadBase64, long version)
+    {
+        try
+        {
+            var frame = await Task.Run(() =>
+            {
+                var bytes = Convert.FromBase64String(payloadBase64);
+                return new Bitmap(new MemoryStream(bytes));
+            }, _captureTokenSource.Token);
+
+            if (Interlocked.Read(ref _receivedFrameVersion) != version)
+            {
+                frame.Dispose();
+                return;
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                CurrentFrame?.Dispose();
+                CurrentFrame = frame;
+                StatusText = _isSender
+                    ? $"Sharing {_source?.Name ?? "screen"} with {BuddyName} at {QualityHeight}p, {_frameRate} fps."
+                    : $"Watching {BuddyName}'s screen share.";
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => StatusText = "Could not show a screen share frame.");
+        }
+    }
+
     public void Dispose()
     {
         _captureTokenSource.Cancel();
+        CurrentFrame?.Dispose();
         _captureTokenSource.Dispose();
     }
 }

@@ -106,7 +106,9 @@ public static class ScreenCaptureService
         var width = Math.Max(1, (int)Math.Round(source.Width * (height / (double)source.Height)));
         var scaled = new Bitmap(width, height);
         using var graphics = Graphics.FromImage(scaled);
-        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;
+        graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
         graphics.DrawImage(source, 0, 0, width, height);
         return scaled;
     }

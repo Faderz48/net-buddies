@@ -13,6 +13,7 @@ public partial class BuddyListWindow : Window
     private readonly Dictionary<ChatRoomViewModel, ChatRoomWindow> _roomWindows = [];
     private readonly Dictionary<ScreenShareViewModel, ScreenShareWindow> _screenShareWindows = [];
     private Window? _signInWindow;
+    private GamesLibraryWindow? _gamesLibraryWindow;
 
     public BuddyListWindow()
     {
@@ -147,6 +148,16 @@ public partial class BuddyListWindow : Window
         }
     }
 
+    private void BuddyItem_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel
+            && sender is Control { DataContext: BuddyViewModel buddy })
+        {
+            viewModel.SelectedBuddy = buddy;
+            BuddyList.SelectedItem = buddy;
+        }
+    }
+
     private async void CreateChatRoom_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is MainWindowViewModel viewModel)
@@ -175,9 +186,23 @@ public partial class BuddyListWindow : Window
         }
     }
 
+    private void GamesLibrary_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_gamesLibraryWindow is not null)
+        {
+            _gamesLibraryWindow.Activate();
+            return;
+        }
+
+        _gamesLibraryWindow = new GamesLibraryWindow();
+        _gamesLibraryWindow.Closed += (_, _) => _gamesLibraryWindow = null;
+        _gamesLibraryWindow.Show(this);
+        _gamesLibraryWindow.Activate();
+    }
+
     private void SendMessage_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel && TryGetBuddy(sender, out var buddy))
+        if (DataContext is MainWindowViewModel viewModel && TryGetBuddy(sender, viewModel, out var buddy))
         {
             viewModel.SelectedBuddy = buddy;
             viewModel.OpenChatCommand.Execute(buddy);
@@ -186,7 +211,7 @@ public partial class BuddyListWindow : Window
 
     private void Nudge_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel && TryGetBuddy(sender, out var buddy))
+        if (DataContext is MainWindowViewModel viewModel && TryGetBuddy(sender, viewModel, out var buddy))
         {
             viewModel.SelectedBuddy = buddy;
             viewModel.SendNudgeToCommand.Execute(buddy);
@@ -195,7 +220,7 @@ public partial class BuddyListWindow : Window
 
     private async void SendFile_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel || !TryGetBuddy(sender, out var buddy))
+        if (DataContext is not MainWindowViewModel viewModel || !TryGetBuddy(sender, viewModel, out var buddy))
         {
             return;
         }
@@ -273,7 +298,7 @@ public partial class BuddyListWindow : Window
             return;
         }
 
-        var buddy = TryGetBuddy(sender, out var menuBuddy)
+        var buddy = TryGetBuddy(sender, viewModel, out var menuBuddy)
             ? menuBuddy
             : viewModel.SelectedBuddy;
 
@@ -288,6 +313,11 @@ public partial class BuddyListWindow : Window
 
     private static bool TryGetBuddy(object? sender, out BuddyViewModel buddy)
     {
+        return TryGetBuddy(sender, null, out buddy);
+    }
+
+    private static bool TryGetBuddy(object? sender, MainWindowViewModel? viewModel, out BuddyViewModel buddy)
+    {
         buddy = null!;
 
         if (sender is Control { DataContext: BuddyViewModel senderBuddy })
@@ -297,10 +327,38 @@ public partial class BuddyListWindow : Window
         }
 
         if (sender is MenuItem menuItem
-            && menuItem.Parent is ContextMenu { PlacementTarget.DataContext: BuddyViewModel targetBuddy })
+            && TryGetBuddyFromMenuItem(menuItem, out var targetBuddy))
         {
             buddy = targetBuddy;
             return true;
+        }
+
+        if (viewModel?.SelectedBuddy is not null)
+        {
+            buddy = viewModel.SelectedBuddy;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetBuddyFromMenuItem(MenuItem menuItem, out BuddyViewModel buddy)
+    {
+        buddy = null!;
+        var current = menuItem.Parent;
+        while (current is not null)
+        {
+            switch (current)
+            {
+                case ContextMenu { PlacementTarget.DataContext: BuddyViewModel targetBuddy }:
+                    buddy = targetBuddy;
+                    return true;
+                case MenuItem parentMenu:
+                    current = parentMenu.Parent;
+                    break;
+                default:
+                    return false;
+            }
         }
 
         return false;
@@ -327,6 +385,8 @@ public partial class BuddyListWindow : Window
         {
             screenShareWindow.Close();
         }
+
+        _gamesLibraryWindow?.Close();
 
         if (DataContext is MainWindowViewModel viewModel)
         {

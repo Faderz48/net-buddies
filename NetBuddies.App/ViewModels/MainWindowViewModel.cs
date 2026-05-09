@@ -547,17 +547,17 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
         client.ScreenShareReceived += packet =>
         {
+            if (packet.FileAction == "Frame" && _screenShares.TryGetValue(packet.TransferId, out var frameShare))
+            {
+                frameShare.ReceiveFrame(packet);
+                return;
+            }
+
             Dispatcher.UIThread.Post(() =>
             {
-                if (packet.FileAction == "Frame" && _screenShares.TryGetValue(packet.TransferId, out var share))
-                {
-                    share.ReceiveFrame(packet);
-                    return;
-                }
-
                 if (packet.FileAction == "End")
                 {
-                    if (_screenShares.Remove(packet.TransferId, out share))
+                    if (_screenShares.Remove(packet.TransferId, out var share))
                     {
                         _ = share.StopAsync(notifyBuddy: false);
                     }
