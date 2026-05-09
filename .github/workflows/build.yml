@@ -125,7 +125,8 @@ jobs:
 
       - name: Download appimagetool
         run: |
-          curl -L -o appimagetool-x86_64.AppImage https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          curl --fail --location --retry 3 --output appimagetool-x86_64.AppImage https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          file appimagetool-x86_64.AppImage | grep -q ELF
           chmod +x appimagetool-x86_64.AppImage
 
       - name: Build Linux AppImage
@@ -181,7 +182,8 @@ jobs:
 
       - name: Download appimagetool
         run: |
-          curl -L -o appimagetool-x86_64.AppImage https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          curl --fail --location --retry 3 --output appimagetool-x86_64.AppImage https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          file appimagetool-x86_64.AppImage | grep -q ELF
           chmod +x appimagetool-x86_64.AppImage
 
       - name: Build Linux client AppImage
