@@ -303,7 +303,6 @@
                          Grid.Row="3"
                          PlaceholderText="Type a message..."
                          AcceptsReturn="True"
-                         KeyDown="MessageInput_KeyDown"
                          MinHeight="78"
                          TextWrapping="Wrap"/>
 

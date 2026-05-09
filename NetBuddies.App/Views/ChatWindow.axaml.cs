@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.Platform.Storage;
@@ -17,6 +18,7 @@ public partial class ChatWindow : Window
     public ChatWindow()
     {
         InitializeComponent();
+        MessageInput.AddHandler(InputElement.KeyDownEvent, MessageInput_KeyDown, RoutingStrategies.Tunnel);
         DataContextChanged += (_, _) => HookViewModel();
         Activated += (_, _) => ChatAttentionService.StopFlashing(this);
         Closed += (_, _) =>
@@ -89,6 +91,7 @@ public partial class ChatWindow : Window
         if (viewModel.SendMessageCommand.CanExecute(null))
         {
             e.Handled = true;
+            viewModel.DraftMessage = MessageInput.Text ?? "";
             viewModel.SendMessageCommand.Execute(null);
         }
     }
