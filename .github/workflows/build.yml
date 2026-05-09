@@ -139,3 +139,59 @@ jobs:
             publish/NetBuddies-Server-linux-x64.zip
             publish/NetBuddies-Server-linux-x64-AppDir.zip
             publish/NetBuddies-Server-x86_64.AppImage
+
+  linux-client:
+    name: Build Linux client
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish Linux client
+        run: >
+          dotnet publish NetBuddies.App/NetBuddies.App.csproj
+          --configuration Release
+          --runtime linux-x64
+          --self-contained true
+          -p:PublishSingleFile=false
+          --output publish/netbuddies-client-linux-x64
+
+      - name: Build AppDir
+        run: |
+          mkdir -p publish/NetBuddiesClient.AppDir/usr/bin
+          cp -r publish/netbuddies-client-linux-x64/* publish/NetBuddiesClient.AppDir/usr/bin/
+          cp packaging/linux-client-appdir/AppRun publish/NetBuddiesClient.AppDir/AppRun
+          cp packaging/linux-client-appdir/netbuddies-client.desktop publish/NetBuddiesClient.AppDir/netbuddies-client.desktop
+          cp NetBuddies.App/Assets/netbuddies-256.png publish/NetBuddiesClient.AppDir/netbuddies-client.png
+          chmod +x publish/NetBuddiesClient.AppDir/AppRun
+          chmod +x publish/NetBuddiesClient.AppDir/usr/bin/NetBuddies.App
+
+      - name: Create Linux client zips
+        run: |
+          cd publish/netbuddies-client-linux-x64
+          zip -r ../NetBuddies-Client-linux-x64.zip .
+          cd ../NetBuddiesClient.AppDir
+          zip -r ../NetBuddies-Client-linux-x64-AppDir.zip .
+
+      - name: Download appimagetool
+        run: |
+          curl -L -o appimagetool-x86_64.AppImage https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+
+      - name: Build Linux client AppImage
+        run: ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run publish/NetBuddiesClient.AppDir publish/NetBuddies-Client-x86_64.AppImage
+
+      - name: Upload Linux client artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-buddies-linux-client
+          path: |
+            publish/NetBuddies-Client-linux-x64.zip
+            publish/NetBuddies-Client-linux-x64-AppDir.zip
+            publish/NetBuddies-Client-x86_64.AppImage

@@ -576,8 +576,10 @@ public partial class GameSessionViewModel : ViewModelBase
                     cell.ShowKing = _checkers[index] is 3 or 4;
                     cell.PieceImage = _checkers[index] switch
                     {
-                        1 or 3 => GameAssetService.Load("Checkers/checker-red.png"),
-                        2 or 4 => GameAssetService.Load("Checkers/checker-black.png"),
+                        1 => GameAssetService.Load("Checkers/checker-red.png"),
+                        2 => GameAssetService.Load("Checkers/checker-black.png"),
+                        3 => GameAssetService.Load("Checkers/checker-red-king.png"),
+                        4 => GameAssetService.Load("Checkers/checker-black-king.png"),
                         _ => null
                     };
                     cell.PieceFill = _checkers[index] is 1 or 3 ? CheckerLocalPiece : CheckerRemotePiece;

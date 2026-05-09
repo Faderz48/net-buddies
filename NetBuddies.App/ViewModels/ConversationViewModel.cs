@@ -70,7 +70,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 {
     private readonly BuddyClient _client;
     private readonly Func<string, Bitmap?> _profileImageProvider;
-    private readonly Dictionary<string, string> _pendingOutgoingFiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PendingOutgoingFile> _pendingOutgoingFiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IncomingFileTransfer> _incomingFiles = new(StringComparer.OrdinalIgnoreCase);
     private RoomVoiceChannel? _privateVoiceChannel;
     private WaveInEvent? _voiceNoteCapture;
@@ -137,6 +137,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private bool _echoCancellationEnabled = true;
 
+    [ObservableProperty]
+    private bool _enterSendsMessage;
+
     public ConversationViewModel(BuddyClient client, string buddyName, Func<string, Bitmap?> profileImageProvider)
     {
         _client = client;
@@ -184,7 +187,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     {
         var transferId = Guid.NewGuid().ToString("N");
         var fileName = Path.GetFileName(path);
-        _pendingOutgoingFiles[transferId] = path;
+        _pendingOutgoingFiles[transferId] = new PendingOutgoingFile(path, IsInlineImage: false);
         AddOrUpdateTransfer(transferId, fileName, new FileInfo(path).Length, "Waiting for accept", 0);
         Messages.Add(CreateMessage("Me", $"File offer sent: {fileName}", isMine: true, isEvent: true));
         await _client.SendFileOfferAsync(BuddyName, transferId, path);
@@ -194,8 +197,12 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     {
         var bytes = await File.ReadAllBytesAsync(path);
         var fileName = Path.GetFileName(path);
-        Messages.Add(CreateMessage("Me", fileName, isMine: true, inlineImageBytes: bytes));
-        await _client.SendImageAsync(BuddyName, path);
+        var transferId = Guid.NewGuid().ToString("N");
+        _pendingOutgoingFiles[transferId] = new PendingOutgoingFile(path, IsInlineImage: true);
+        AddOrUpdateTransfer(transferId, fileName, bytes.LongLength, "Waiting for accept", 0);
+        Messages.Add(CreateMessage("Me", fileName, isMine: true, inlineImageBytes: bytes, inlineFileName: fileName));
+        Messages.Add(CreateMessage("Net Buddies", $"Image offer sent: {fileName}", isMine: true, isEvent: true));
+        await _client.SendImageOfferAsync(BuddyName, transferId, path);
     }
 
     public async Task SendGifAsync(string title, byte[] gifBytes)
@@ -521,13 +528,36 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
                         Messages.Add(CreateMessage("Net Buddies", $"Declined file: {packet.FileName}", isMine: true, isEvent: true));
                     });
                 return null;
+            case "ImageOffer":
+                AddRequest(
+                    "Image",
+                    $"{packet.From} wants to send an image: {packet.FileName} ({packet.FileSize:N0} bytes).",
+                    async () =>
+                    {
+                        await _client.SendFileAcceptAsync(packet.From, packet.TransferId);
+                        Messages.Add(CreateMessage("Net Buddies", $"Accepted image: {packet.FileName}", isMine: true, isEvent: true));
+                    },
+                    async () =>
+                    {
+                        await _client.SendFileDeclineAsync(packet.From, packet.TransferId, packet.FileName);
+                        Messages.Add(CreateMessage("Net Buddies", $"Declined image: {packet.FileName}", isMine: true, isEvent: true));
+                    });
+                return null;
             case "Accept":
-                if (_pendingOutgoingFiles.TryGetValue(packet.TransferId, out var path))
+                if (_pendingOutgoingFiles.TryGetValue(packet.TransferId, out var pending))
                 {
                     _pendingOutgoingFiles.Remove(packet.TransferId);
-                    Messages.Add(CreateMessage("Net Buddies", $"{packet.From} accepted {Path.GetFileName(path)}. Sending now.", isMine: true, isEvent: true));
-                    AddOrUpdateTransfer(packet.TransferId, Path.GetFileName(path), new FileInfo(path).Length, "Sending", 0);
-                    _ = SendAcceptedFileAsync(packet.From, packet.TransferId, path);
+                    var fileName = Path.GetFileName(pending.Path);
+                    Messages.Add(CreateMessage("Net Buddies", $"{packet.From} accepted {fileName}. Sending now.", isMine: true, isEvent: true));
+                    AddOrUpdateTransfer(packet.TransferId, fileName, new FileInfo(pending.Path).Length, "Sending", 0);
+                    if (pending.IsInlineImage)
+                    {
+                        _ = SendAcceptedImageAsync(packet.From, packet.TransferId, pending.Path);
+                    }
+                    else
+                    {
+                        _ = SendAcceptedFileAsync(packet.From, packet.TransferId, pending.Path);
+                    }
                 }
 
                 return null;
@@ -569,6 +599,22 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         {
             AddOrUpdateTransfer(transferId, Path.GetFileName(path), 0, $"Send failed: {ex.Message}", 0);
             Messages.Add(CreateMessage("Net Buddies", $"Could not send {Path.GetFileName(path)}: {ex.Message}", isMine: true, isEvent: true));
+        }
+    }
+
+    private async Task SendAcceptedImageAsync(string to, string transferId, string path)
+    {
+        try
+        {
+            var fileInfo = new FileInfo(path);
+            await _client.SendImageAsync(to, path);
+            AddOrUpdateTransfer(transferId, fileInfo.Name, fileInfo.Length, "Sent", fileInfo.Length);
+            Messages.Add(CreateMessage("Net Buddies", $"Finished sending image {fileInfo.Name}.", isMine: true, isEvent: true));
+        }
+        catch (Exception ex)
+        {
+            AddOrUpdateTransfer(transferId, Path.GetFileName(path), 0, $"Send failed: {ex.Message}", 0);
+            Messages.Add(CreateMessage("Net Buddies", $"Could not send image {Path.GetFileName(path)}: {ex.Message}", isMine: true, isEvent: true));
         }
     }
 
@@ -711,26 +757,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         var label = packet.FileAction == "GifData"
             ? string.IsNullOrWhiteSpace(packet.Text) ? "GIPHY GIF" : packet.Text
             : packet.FileName;
-        Messages.Add(CreateMessage(packet.From, label, isMine: false, inlineImageBytes: bytes));
-        SaveIncomingInlineMedia(packet, bytes);
-    }
-
-    private void SaveIncomingInlineMedia(NetBuddiesPacket packet, byte[] bytes)
-    {
-        var downloadsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "NetBuddiesDownloads",
-            "Images");
-        Directory.CreateDirectory(downloadsPath);
-
-        var fallbackName = packet.FileAction == "GifData"
-            ? $"giphy-{DateTime.Now:yyyyMMdd-HHmmss}.gif"
-            : $"image-{DateTime.Now:yyyyMMdd-HHmmss}.png";
-        var fileName = string.IsNullOrWhiteSpace(packet.FileName) ? fallbackName : packet.FileName;
-        var safeFileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars()));
-        var fullPath = Path.Combine(downloadsPath, safeFileName);
-        File.WriteAllBytes(fullPath, bytes);
-        DownloadSaved?.Invoke(fullPath);
+        Messages.Add(CreateMessage(packet.From, label, isMine: false, inlineImageBytes: bytes, inlineFileName: packet.FileName));
     }
 
     private string SaveIncomingVoiceNote(NetBuddiesPacket packet)
@@ -877,12 +904,13 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         bool isMine,
         bool isEvent = false,
         string voiceNotePath = "",
-        byte[]? inlineImageBytes = null)
+        byte[]? inlineImageBytes = null,
+        string inlineFileName = "")
     {
         var avatarName = isMine && sender.Equals("Me", StringComparison.OrdinalIgnoreCase)
             ? _client.DisplayName
             : sender;
-        return new MessageLineViewModel(sender, body, isMine, isEvent, GetAvatar(avatarName), voiceNotePath, inlineImageBytes);
+        return new MessageLineViewModel(sender, body, isMine, isEvent, GetAvatar(avatarName), voiceNotePath, inlineImageBytes, inlineFileName);
     }
 
     private Bitmap? GetAvatar(string sender)
@@ -1009,4 +1037,6 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         public long FileSize { get; } = fileSize;
         public long BytesReceived { get; set; }
     }
+
+    private sealed record PendingOutgoingFile(string Path, bool IsInlineImage);
 }

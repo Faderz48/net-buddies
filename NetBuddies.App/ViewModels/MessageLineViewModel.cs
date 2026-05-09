@@ -13,6 +13,7 @@ public sealed partial class MessageLineViewModel : ViewModelBase
     private WaveOutEvent? _voiceNoteOutput;
     private readonly List<TimeSpan> _inlineFrameDelays = [];
     private readonly List<Bitmap> _inlineFrames = [];
+    private readonly byte[]? _inlineImageBytes;
     private DispatcherTimer? _inlineTimer;
     private int _inlineFrameIndex;
 
@@ -23,7 +24,8 @@ public sealed partial class MessageLineViewModel : ViewModelBase
         bool isEvent = false,
         Bitmap? avatarImage = null,
         string voiceNotePath = "",
-        byte[]? inlineImageBytes = null)
+        byte[]? inlineImageBytes = null,
+        string inlineFileName = "")
     {
         Sender = sender;
         Body = body;
@@ -31,6 +33,8 @@ public sealed partial class MessageLineViewModel : ViewModelBase
         IsEvent = isEvent;
         AvatarImage = avatarImage;
         VoiceNotePath = voiceNotePath;
+        InlineFileName = string.IsNullOrWhiteSpace(inlineFileName) ? body : inlineFileName;
+        _inlineImageBytes = inlineImageBytes;
         InlineImage = CreateInlineImage(inlineImageBytes);
         if (inlineImageBytes is not null)
         {
@@ -44,8 +48,10 @@ public sealed partial class MessageLineViewModel : ViewModelBase
     public bool IsEvent { get; }
     public Bitmap? AvatarImage { get; }
     public string VoiceNotePath { get; }
+    public string InlineFileName { get; }
     public bool HasVoiceNote => !string.IsNullOrWhiteSpace(VoiceNotePath);
     public bool HasInlineImage => InlineImage is not null;
+    public bool HasInlineDownload => HasInlineImage && _inlineImageBytes is { Length: > 0 };
     public string Stamp { get; } = DateTime.Now.ToString("HH:mm");
 
     [ObservableProperty]
@@ -54,9 +60,43 @@ public sealed partial class MessageLineViewModel : ViewModelBase
     [ObservableProperty]
     private Bitmap? _inlineImage;
 
+    [ObservableProperty]
+    private string _inlineDownloadStatus = "";
+
     partial void OnInlineImageChanged(Bitmap? value)
     {
         OnPropertyChanged(nameof(HasInlineImage));
+        OnPropertyChanged(nameof(HasInlineDownload));
+    }
+
+    [RelayCommand]
+    private void DownloadInlineMedia()
+    {
+        if (_inlineImageBytes is not { Length: > 0 })
+        {
+            return;
+        }
+
+        try
+        {
+            var downloadsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "NetBuddiesDownloads",
+                "Images");
+            Directory.CreateDirectory(downloadsPath);
+
+            var fileName = string.IsNullOrWhiteSpace(InlineFileName)
+                ? $"netbuddies-image-{DateTime.Now:yyyyMMdd-HHmmss}.png"
+                : InlineFileName;
+            var safeFileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars()));
+            var fullPath = CreateUniquePath(Path.Combine(downloadsPath, safeFileName));
+            File.WriteAllBytes(fullPath, _inlineImageBytes);
+            InlineDownloadStatus = $"Saved to {fullPath}";
+        }
+        catch (Exception ex)
+        {
+            InlineDownloadStatus = $"Could not save: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -154,6 +194,19 @@ public sealed partial class MessageLineViewModel : ViewModelBase
         {
             return null;
         }
+    }
+
+    private static string CreateUniquePath(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return path;
+        }
+
+        var directory = Path.GetDirectoryName(path) ?? "";
+        var name = Path.GetFileNameWithoutExtension(path);
+        var extension = Path.GetExtension(path);
+        return Path.Combine(directory, $"{name}-{DateTime.Now:yyyyMMdd-HHmmss}{extension}");
     }
 
     private static bool IsGif(byte[] bytes)

@@ -81,7 +81,12 @@ public partial class ChatWindow : Window
             return;
         }
 
-        if (DataContext is ConversationViewModel viewModel && viewModel.SendMessageCommand.CanExecute(null))
+        if (DataContext is not ConversationViewModel viewModel || !viewModel.EnterSendsMessage)
+        {
+            return;
+        }
+
+        if (viewModel.SendMessageCommand.CanExecute(null))
         {
             e.Handled = true;
             viewModel.SendMessageCommand.Execute(null);

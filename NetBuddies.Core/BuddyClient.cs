@@ -176,6 +176,21 @@ public sealed class BuddyClient : IAsyncDisposable
         });
     }
 
+    public async Task SendImageOfferAsync(string to, string transferId, string path, CancellationToken cancellationToken = default)
+    {
+        var fileInfo = new FileInfo(path);
+        await SendAsync(new NetBuddiesPacket
+        {
+            Kind = PacketKind.FileData,
+            From = DisplayName,
+            To = to,
+            FileAction = "ImageOffer",
+            TransferId = transferId,
+            FileName = Path.GetFileName(path),
+            FileSize = fileInfo.Length
+        });
+    }
+
     public Task SendFileAcceptAsync(string to, string transferId)
     {
         return SendAsync(new NetBuddiesPacket
