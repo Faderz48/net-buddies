@@ -566,7 +566,7 @@ public partial class MainWindow : Window
             var executable = FindExecutable(name);
             if (!string.IsNullOrWhiteSpace(executable))
             {
-                return name;
+                return executable;
             }
         }
 
@@ -600,7 +600,7 @@ public partial class MainWindow : Window
                 var path = process.StandardOutput.ReadLine();
                 if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(path))
                 {
-                    return candidate;
+                    return path.Trim();
                 }
             }
             catch
@@ -625,6 +625,17 @@ public partial class MainWindow : Window
             },
             EnableRaisingEvents = true
         };
+
+        if (OperatingSystem.IsWindows()
+            && (fileName.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase)
+                || fileName.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)))
+        {
+            var scriptPath = fileName;
+            process.StartInfo.FileName = "cmd.exe";
+            process.StartInfo.ArgumentList.Add("/c");
+            process.StartInfo.ArgumentList.Add(scriptPath);
+        }
+
         foreach (var argument in arguments)
         {
             process.StartInfo.ArgumentList.Add(argument);
