@@ -46,7 +46,12 @@ public sealed class BuddyClient : IAsyncDisposable
         await DisconnectAsync();
 
         DisplayName = displayName.Trim();
-        _client = new TcpClient();
+        _client = new TcpClient
+        {
+            NoDelay = true,
+            SendBufferSize = 256 * 1024,
+            ReceiveBufferSize = 256 * 1024
+        };
         await _client.ConnectAsync(host, port, cancellationToken);
 
         _transportStream = await CreateTransportStreamAsync(

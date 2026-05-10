@@ -100,6 +100,9 @@ public sealed class BuddyServer : IAsyncDisposable
             try
             {
                 var tcpClient = await _listener.AcceptTcpClientAsync(cancellationToken);
+                tcpClient.NoDelay = true;
+                tcpClient.SendBufferSize = 256 * 1024;
+                tcpClient.ReceiveBufferSize = 256 * 1024;
                 if (!AllowConnection(tcpClient))
                 {
                     tcpClient.Dispose();
@@ -331,7 +334,12 @@ public sealed class BuddyServer : IAsyncDisposable
             return;
         }
 
-        if (packet.Kind is PacketKind.Chat or PacketKind.Typing or PacketKind.Nudge or PacketKind.FileData or PacketKind.Game or PacketKind.ScreenShare)
+        if (packet.Kind is PacketKind.Chat
+            or PacketKind.Typing
+            or PacketKind.Nudge
+            or PacketKind.FileData
+            or PacketKind.Game
+            or PacketKind.ScreenShare)
         {
             if (_clients.TryGetValue(packet.To, out var recipient))
             {

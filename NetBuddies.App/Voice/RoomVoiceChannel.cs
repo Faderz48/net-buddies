@@ -6,7 +6,9 @@ namespace NetBuddies.App.Voice;
 public sealed class RoomVoiceChannel : IDisposable
 {
     private static readonly WaveFormat VoiceFormat = new(16000, 16, 1);
-    private const int CaptureBufferMilliseconds = 20;
+    private const int CaptureBufferMilliseconds = 15;
+    private static readonly TimeSpan PlaybackBufferDuration = TimeSpan.FromMilliseconds(160);
+    private static readonly TimeSpan StalePlaybackThreshold = TimeSpan.FromMilliseconds(130);
     private readonly Func<byte[], int, Task> _sendAudioAsync;
     private WaveInEvent? _capture;
     private BufferedWaveProvider? _playbackBuffer;
@@ -48,12 +50,12 @@ public sealed class RoomVoiceChannel : IDisposable
 
         _playbackBuffer = new BufferedWaveProvider(VoiceFormat)
         {
-            BufferDuration = TimeSpan.FromMilliseconds(250),
+            BufferDuration = PlaybackBufferDuration,
             DiscardOnBufferOverflow = true
         };
         _playback = new WaveOutEvent
         {
-            DesiredLatency = 60,
+            DesiredLatency = 40,
             NumberOfBuffers = 2
         };
         _playback.Init(_playbackBuffer);
@@ -102,6 +104,11 @@ public sealed class RoomVoiceChannel : IDisposable
         try
         {
             var bytes = Convert.FromBase64String(packet.PayloadBase64);
+            if (_playbackBuffer.BufferedDuration > StalePlaybackThreshold)
+            {
+                _playbackBuffer.ClearBuffer();
+            }
+
             _playbackBuffer.AddSamples(bytes, 0, bytes.Length);
             _lastRemoteAudioAt = DateTimeOffset.UtcNow;
         }
