@@ -1,4 +1,5 @@
-<img width="2287" height="1123" alt="net buddie screen" src="https://github.com/user-attachments/assets/ef28f9bf-259d-40f5-80d4-363535f15bbf" />
+<img width="2217" height="1150" alt="new gui" src="https://github.com/user-attachments/assets/e5682477-c8c3-4c9d-bc5c-5cd5f0947e59" />
+
 # Net Buddies
 
 Net Buddies is a C#/.NET Avalonia  MSN-style instant messaging app.
