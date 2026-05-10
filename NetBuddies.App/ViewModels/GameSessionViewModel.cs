@@ -12,7 +12,8 @@ public enum NetBuddiesGameType
 {
     TicTacToe,
     Checkers,
-    MinesweeperFlags
+    MinesweeperFlags,
+    BuddyPong
 }
 
 public partial class GameSessionViewModel : ViewModelBase
@@ -43,6 +44,7 @@ public partial class GameSessionViewModel : ViewModelBase
     private readonly bool[] _mines;
     private readonly bool[] _revealed;
     private int _selectedChecker = -1;
+    private int _forcedChecker = -1;
     private int _movesPlayed;
     private int _myFlags;
     private int _buddyFlags;
@@ -91,7 +93,7 @@ public partial class GameSessionViewModel : ViewModelBase
     public string GameName => GameType switch
     {
         NetBuddiesGameType.TicTacToe => "Tic Tac Toe",
-        NetBuddiesGameType.Checkers => "Checkers",
+        NetBuddiesGameType.Checkers => "Leapfrog Checkers",
         _ => "Minesweeper Flags"
     };
     public int BoardSize => GameType switch
@@ -235,9 +237,19 @@ public partial class GameSessionViewModel : ViewModelBase
 
     private GameMove? CreateCheckersMove(int index)
     {
+        if (index < 0 || index >= _checkers.Length)
+        {
+            return null;
+        }
+
+        if (_forcedChecker >= 0 && _selectedChecker < 0)
+        {
+            _selectedChecker = _forcedChecker;
+        }
+
         if (_selectedChecker < 0)
         {
-            if (OwnsChecker(index))
+            if (CanSelectChecker(index))
             {
                 _selectedChecker = index;
                 RefreshBoard();
@@ -253,20 +265,26 @@ public partial class GameSessionViewModel : ViewModelBase
             return null;
         }
 
-        if (OwnsChecker(index))
+        if (CanSelectChecker(index))
         {
+            if (_forcedChecker >= 0 && index != _forcedChecker)
+            {
+                StatusText = "Keep jumping with the selected piece.";
+                return null;
+            }
+
             _selectedChecker = index;
             RefreshBoard();
             return null;
         }
 
-        if (!IsLegalCheckerMove(_selectedChecker, index))
+        if (!IsLegalCheckerMove(_selectedChecker, index, LocalPlayer, out _))
         {
+            StatusText = GetInvalidCheckerMoveText(_selectedChecker);
             return null;
         }
 
         var move = new GameMove { From = _selectedChecker, To = index };
-        _selectedChecker = -1;
         return move;
     }
 
@@ -346,15 +364,49 @@ public partial class GameSessionViewModel : ViewModelBase
             return;
         }
 
+        var player = fromRemote ? RemotePlayer : LocalPlayer;
+        if (!PlayerOwnsChecker(move.From, player)
+            || !IsLegalCheckerMove(move.From, move.To, player, out var isCapture))
+        {
+            return;
+        }
+
         var piece = _checkers[move.From];
         _checkers[move.From] = 0;
-        _checkers[move.To] = CrownIfNeeded(piece, move.To);
+        var crownedPiece = CrownIfNeeded(piece, move.To);
+        var wasCrowned = crownedPiece != piece;
+        _checkers[move.To] = crownedPiece;
 
-        var rowDelta = Math.Abs(Row(move.To) - Row(move.From));
-        if (rowDelta == 2)
+        if (isCapture)
         {
             var middle = ((Row(move.From) + Row(move.To)) / 2 * BoardSize) + ((Column(move.From) + Column(move.To)) / 2);
             _checkers[middle] = 0;
+        }
+
+        var opponent = player == 1 ? 2 : 1;
+        if (CountPiecesForPlayer(opponent) == 0)
+        {
+            FinishCheckers(player);
+            return;
+        }
+
+        if (isCapture && !wasCrowned && HasCaptureFrom(move.To, player))
+        {
+            _forcedChecker = move.To;
+            _selectedChecker = fromRemote ? -1 : move.To;
+            IsMyTurn = !fromRemote;
+            StatusText = fromRemote
+                ? $"{BuddyName} must keep jumping."
+                : "Keep jumping with the same piece.";
+            return;
+        }
+
+        _forcedChecker = -1;
+        _selectedChecker = -1;
+        if (!HasAnyLegalMove(opponent))
+        {
+            FinishCheckers(player);
+            return;
         }
 
         IsMyTurn = fromRemote;
@@ -415,9 +467,55 @@ public partial class GameSessionViewModel : ViewModelBase
             : piece is 2 or 4;
     }
 
-    private bool IsLegalCheckerMove(int from, int to)
+    private bool CanSelectChecker(int index)
     {
-        if (_checkers[to] != 0)
+        if (!OwnsChecker(index))
+        {
+            return false;
+        }
+
+        if (_forcedChecker >= 0)
+        {
+            return index == _forcedChecker;
+        }
+
+        return !HasAnyCapture(LocalPlayer) || HasCaptureFrom(index, LocalPlayer);
+    }
+
+    private string GetInvalidCheckerMoveText(int from)
+    {
+        if (_forcedChecker >= 0)
+        {
+            return "You must keep jumping with the same piece.";
+        }
+
+        if (HasAnyCapture(LocalPlayer) && !HasCaptureFrom(from, LocalPlayer))
+        {
+            return "A jump is available. Choose a piece that can capture.";
+        }
+
+        if (HasAnyCapture(LocalPlayer))
+        {
+            return "A jump is required.";
+        }
+
+        return TurnText();
+    }
+
+    private bool IsLegalCheckerMove(int from, int to, int player, out bool isCapture)
+    {
+        isCapture = false;
+        if (from < 0 || from >= _checkers.Length || to < 0 || to >= _checkers.Length)
+        {
+            return false;
+        }
+
+        if (_forcedChecker >= 0 && from != _forcedChecker)
+        {
+            return false;
+        }
+
+        if (_checkers[to] != 0 || !PlayerOwnsChecker(from, player))
         {
             return false;
         }
@@ -430,16 +528,134 @@ public partial class GameSessionViewModel : ViewModelBase
 
         if (colDelta == 1 && (rowDelta == direction || isKing && Math.Abs(rowDelta) == 1))
         {
-            return true;
+            return _forcedChecker < 0 && !HasAnyCapture(player);
         }
 
         if (colDelta == 2 && (rowDelta == direction * 2 || isKing && Math.Abs(rowDelta) == 2))
         {
             var middle = ((Row(from) + Row(to)) / 2 * BoardSize) + ((Column(from) + Column(to)) / 2);
-            return _checkers[middle] != 0 && !OwnsChecker(middle);
+            isCapture = _checkers[middle] != 0 && PlayerOwnsChecker(middle, player == 1 ? 2 : 1);
+            return isCapture;
         }
 
         return false;
+    }
+
+    private bool HasAnyCapture(int player)
+    {
+        for (var index = 0; index < _checkers.Length; index++)
+        {
+            if (HasCaptureFrom(index, player))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasCaptureFrom(int from, int player)
+    {
+        if (!PlayerOwnsChecker(from, player))
+        {
+            return false;
+        }
+
+        foreach (var (rowOffset, colOffset) in CheckerDirections(_checkers[from]))
+        {
+            var middleRow = Row(from) + rowOffset;
+            var middleColumn = Column(from) + colOffset;
+            var targetRow = Row(from) + rowOffset * 2;
+            var targetColumn = Column(from) + colOffset * 2;
+            if (!IsInsideClassicBoard(middleRow, middleColumn) || !IsInsideClassicBoard(targetRow, targetColumn))
+            {
+                continue;
+            }
+
+            var middle = middleRow * ClassicBoardSize + middleColumn;
+            var target = targetRow * ClassicBoardSize + targetColumn;
+            if (_checkers[target] == 0 && PlayerOwnsChecker(middle, player == 1 ? 2 : 1))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasAnyLegalMove(int player)
+    {
+        if (HasAnyCapture(player))
+        {
+            return true;
+        }
+
+        for (var index = 0; index < _checkers.Length; index++)
+        {
+            if (!PlayerOwnsChecker(index, player))
+            {
+                continue;
+            }
+
+            foreach (var (rowOffset, colOffset) in CheckerDirections(_checkers[index]))
+            {
+                var targetRow = Row(index) + rowOffset;
+                var targetColumn = Column(index) + colOffset;
+                if (!IsInsideClassicBoard(targetRow, targetColumn))
+                {
+                    continue;
+                }
+
+                var target = targetRow * ClassicBoardSize + targetColumn;
+                if (_checkers[target] == 0)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private IEnumerable<(int RowOffset, int ColumnOffset)> CheckerDirections(int piece)
+    {
+        if (piece is 1 or 3 or 4)
+        {
+            yield return (-1, -1);
+            yield return (-1, 1);
+        }
+
+        if (piece is 2 or 3 or 4)
+        {
+            yield return (1, -1);
+            yield return (1, 1);
+        }
+    }
+
+    private bool PlayerOwnsChecker(int index, int player)
+    {
+        if (index < 0 || index >= _checkers.Length)
+        {
+            return false;
+        }
+
+        return player == 1
+            ? _checkers[index] is 1 or 3
+            : _checkers[index] is 2 or 4;
+    }
+
+    private static bool IsInsideClassicBoard(int row, int column)
+    {
+        return row >= 0 && row < ClassicBoardSize && column >= 0 && column < ClassicBoardSize;
+    }
+
+    private void FinishCheckers(int winner)
+    {
+        IsMyTurn = false;
+        _isGameOver = true;
+        _forcedChecker = -1;
+        _selectedChecker = -1;
+        StatusText = winner == LocalPlayer ? "You won!" : $"{BuddyName} won.";
     }
 
     private int CrownIfNeeded(int piece, int index)
@@ -546,42 +762,43 @@ public partial class GameSessionViewModel : ViewModelBase
                     cell.Background = _winningCells.Contains(index)
                         ? new SolidColorBrush(Color.FromRgb(255, 234, 118))
                         : _ticTacToe[index] == 0 ? TicTacToeEmptyBrush : TicTacToeBoardBrush;
-                    cell.TileImage = GameAssetService.Load(_winningCells.Contains(index)
+                    cell.SetTileAsset(_winningCells.Contains(index)
                         ? "TicTacToe/tile-winning.png"
                         : _ticTacToe[index] == 0
                             ? "TicTacToe/tile-empty.png"
                             : "TicTacToe/tile-played.png");
                     cell.AccentBrush = _ticTacToe[index] == 1 ? TicTacToeXBrush : TicTacToeOBrush;
                     cell.ShowImage = _ticTacToe[index] != 0;
-                    cell.PieceImage = _ticTacToe[index] == 1
-                        ? GameAssetService.Load("TicTacToe/x-piece.png")
+                    cell.SetPieceAsset(_ticTacToe[index] == 1
+                        ? "TicTacToe/x-piece.png"
                         : _ticTacToe[index] == 2
-                            ? GameAssetService.Load("TicTacToe/o-piece.png")
-                            : null;
+                            ? "TicTacToe/o-piece.png"
+                            : null);
                     break;
                 case NetBuddiesGameType.Checkers:
                     cell.Background = (Row(index) + Column(index)) % 2 == 0
                         ? CheckerLightSquare
                         : CheckerDarkSquare;
-                    cell.TileImage = GameAssetService.Load((Row(index) + Column(index)) % 2 == 0
+                    cell.SetTileAsset((Row(index) + Column(index)) % 2 == 0
                         ? "Checkers/tile-light.png"
                         : "Checkers/tile-dark.png");
                     if (index == _selectedChecker)
                     {
                         cell.Background = CheckerSelectedSquare;
-                        cell.TileImage = GameAssetService.Load("Checkers/tile-selected.png");
+                        cell.SetTileAsset("Checkers/tile-selected.png");
                     }
 
                     cell.ShowImage = _checkers[index] != 0;
                     cell.ShowKing = _checkers[index] is 3 or 4;
-                    cell.PieceImage = _checkers[index] switch
+                    var checkerAsset = _checkers[index] switch
                     {
-                        1 => GameAssetService.Load("Checkers/checker-red.png"),
-                        2 => GameAssetService.Load("Checkers/checker-black.png"),
-                        3 => GameAssetService.Load("Checkers/checker-red-king.png"),
-                        4 => GameAssetService.Load("Checkers/checker-black-king.png"),
+                        1 => "Checkers/checker-red.png",
+                        2 => "Checkers/checker-black.png",
+                        3 => "Checkers/checker-red-king.png",
+                        4 => "Checkers/checker-black-king.png",
                         _ => null
                     };
+                    cell.SetPieceAsset(checkerAsset, randomizeStart: checkerAsset is not null, maxInitialDelayMilliseconds: 3000);
                     cell.PieceFill = _checkers[index] is 1 or 3 ? CheckerLocalPiece : CheckerRemotePiece;
                     cell.PieceStroke = _checkers[index] is 1 or 3 ? CheckerLocalStroke : CheckerRemoteStroke;
                     cell.AccentBrush = OwnsChecker(index)
@@ -592,13 +809,13 @@ public partial class GameSessionViewModel : ViewModelBase
                     cell.Background = _revealed[index]
                         ? MineOpenBrush
                         : (Row(index) + Column(index)) % 2 == 0 ? MineCoveredBrush : MineCoveredAltBrush;
-                    cell.TileImage = GameAssetService.Load(_revealed[index]
+                    cell.SetTileAsset(_revealed[index]
                         ? "MinesweeperFlags/tile-open.png"
                         : (Row(index) + Column(index)) % 2 == 0
                             ? "MinesweeperFlags/tile-covered.png"
                             : "MinesweeperFlags/tile-covered-alt.png");
                     cell.ShowImage = _revealed[index] && _mines[index];
-                    cell.PieceImage = cell.ShowImage ? GameAssetService.Load("MinesweeperFlags/flag.png") : null;
+                    cell.SetPieceAsset(cell.ShowImage ? "MinesweeperFlags/flag.png" : null);
                     cell.AccentBrush = MineFlagBrush;
                     var adjacentMines = CountAdjacentMines(index);
                     cell.ShowNumber = _revealed[index] && !_mines[index] && adjacentMines > 0;
@@ -702,7 +919,37 @@ public partial class GameSessionViewModel : ViewModelBase
         return count;
     }
 
-    private string TurnText() => IsMyTurn ? "Your turn." : $"{BuddyName}'s turn.";
+    private int CountPiecesForPlayer(int player)
+    {
+        var count = 0;
+        for (var index = 0; index < _checkers.Length; index++)
+        {
+            if (PlayerOwnsChecker(index, player))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private string TurnText()
+    {
+        if (GameType == NetBuddiesGameType.Checkers)
+        {
+            if (IsMyTurn && HasAnyCapture(LocalPlayer))
+            {
+                return "Your turn. A jump is required.";
+            }
+
+            if (!IsMyTurn && HasAnyCapture(RemotePlayer))
+            {
+                return $"{BuddyName}'s turn. A jump is required.";
+            }
+        }
+
+        return IsMyTurn ? "Your turn." : $"{BuddyName}'s turn.";
+    }
     private int LocalPlayer => IsHost ? 1 : 2;
     private int RemotePlayer => IsHost ? 2 : 1;
     private int Row(int index) => index / BoardSize;

@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NetBuddies.App.ViewModels"
+        xmlns:views="using:NetBuddies.App.Views"
+        x:Class="NetBuddies.App.Views.RealtimePongWindow"
+        x:DataType="vm:RealtimePongViewModel"
+        Width="760"
+        Height="520"
+        MinWidth="560"
+        MinHeight="380"
+        Title="{Binding Title}"
+        Background="{DynamicResource NbPageBrush}">
+
+    <Grid RowDefinitions="Auto,*"
+          Background="{DynamicResource NbPageBrush}">
+        <Border Background="{DynamicResource NbHeaderBrush}"
+                Padding="14"
+                BorderBrush="{DynamicResource NbHeaderBorderBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel>
+                    <TextBlock Text="Buddy Pong"
+                               Foreground="White"
+                               FontSize="26"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="{Binding StatusText}"
+                               Foreground="#E8F7FF"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            HorizontalAlignment="Right">
+                    <TextBlock Text="{Binding SideText}"
+                               Foreground="#E8F7FF"
+                               HorizontalAlignment="Right"/>
+                    <TextBlock Foreground="White"
+                               FontSize="20"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Right">
+                        <Run Text="{Binding LeftScore}"/>
+                        <Run Text=" : "/>
+                        <Run Text="{Binding RightScore}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Margin="14"
+                Background="#07111D"
+                BorderBrush="#315C83"
+                BorderThickness="1"
+                CornerRadius="8"
+                ClipToBounds="True">
+            <Viewbox Stretch="Fill">
+                <Canvas Width="700"
+                        Height="360"
+                        Background="#07111D">
+                    <Rectangle Width="3"
+                               Height="360"
+                               Fill="#365A79"
+                               Canvas.Left="348"
+                               Canvas.Top="0"
+                               Opacity="0.55"/>
+                    <TextBlock Text="{Binding LeftName}"
+                               Foreground="#BDE2FF"
+                               FontWeight="SemiBold"
+                               Canvas.Left="24"
+                               Canvas.Top="12"/>
+                    <TextBlock Text="{Binding RightName}"
+                               Foreground="#BDE2FF"
+                               FontWeight="SemiBold"
+                               Canvas.Left="560"
+                               Canvas.Top="12"/>
+                    <Border Width="16"
+                            Height="92"
+                            CornerRadius="5"
+                            Background="#2EA2FF"
+                            Canvas.Left="28"
+                            Canvas.Top="{Binding LeftPaddleY, Converter={x:Static views:RealtimePongWindow.PaddlePositionConverter}}"/>
+                    <Border Width="16"
+                            Height="92"
+                            CornerRadius="5"
+                            Background="#67D46B"
+                            Canvas.Left="656"
+                            Canvas.Top="{Binding RightPaddleY, Converter={x:Static views:RealtimePongWindow.PaddlePositionConverter}}"/>
+                    <Ellipse Width="22"
+                             Height="22"
+                             Fill="#FFE873"
+                             Canvas.Left="{Binding BallX, Converter={x:Static views:RealtimePongWindow.BallXConverter}}"
+                             Canvas.Top="{Binding BallY, Converter={x:Static views:RealtimePongWindow.BallYConverter}}"/>
+                </Canvas>
+            </Viewbox>
+        </Border>
+    </Grid>
+</Window>

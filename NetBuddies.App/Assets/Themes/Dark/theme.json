@@ -1,0 +1,27 @@
+{
+  "displayName": "Dark",
+  "base": "Dark",
+  "colors": {
+    "NbPageBrush": "#101A26",
+    "NbPanelBrush": "#172434",
+    "NbCardBrush": "#1D2C3D",
+    "NbCardBorderBrush": "#365A79",
+    "NbMessageBrush": "#172637",
+    "NbMessageBorderBrush": "#3E7097",
+    "NbHeaderBrush": "#075A9F",
+    "NbHeaderAccentBrush": "#1278C9",
+    "NbHeaderBorderBrush": "#0A477A",
+    "NbPrimaryBrush": "#1F8FE5",
+    "NbTextBrush": "#E8F4FF",
+    "NbStrongTextBrush": "#FFFFFF",
+    "NbSubtleTextBrush": "#B9D0E4",
+    "NbLinkBrush": "#8CC9FF",
+    "NbInputBrush": "#0F1925",
+    "NbInputBorderBrush": "#456B8D",
+    "NbAvatarBrush": "#25384C",
+    "NbAvatarBorderBrush": "#5F83A4",
+    "NbInviteBrush": "#463C15",
+    "NbInviteBorderBrush": "#A88D25",
+    "NbInviteTextBrush": "#FFE8A3"
+  }
+}

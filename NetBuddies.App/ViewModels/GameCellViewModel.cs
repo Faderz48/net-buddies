@@ -1,6 +1,7 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using NetBuddies.App.Services;
 
 namespace NetBuddies.App.ViewModels;
 
@@ -70,6 +71,25 @@ public sealed partial class GameCellViewModel(int index) : ViewModelBase
     [ObservableProperty]
     private Bitmap? _tileImage;
 
+    [ObservableProperty]
+    private GameImageAsset? _pieceAsset;
+
+    [ObservableProperty]
+    private GameImageAsset? _tileAsset;
+
+    private string _pieceAssetKey = "";
+    private string _tileAssetKey = "";
+
+    public void SetPieceAsset(string? relativePath, bool randomizeStart = false, int maxInitialDelayMilliseconds = 0)
+    {
+        SetAsset(relativePath, randomizeStart, maxInitialDelayMilliseconds, isPiece: true);
+    }
+
+    public void SetTileAsset(string? relativePath)
+    {
+        SetAsset(relativePath, randomizeStart: false, maxInitialDelayMilliseconds: 0, isPiece: false);
+    }
+
     public void ClearVisuals()
     {
         Text = "";
@@ -89,5 +109,35 @@ public sealed partial class GameCellViewModel(int index) : ViewModelBase
         TileImageSource = "";
         PieceImage = null;
         TileImage = null;
+    }
+
+    private void SetAsset(string? relativePath, bool randomizeStart, int maxInitialDelayMilliseconds, bool isPiece)
+    {
+        var key = relativePath is null
+            ? ""
+            : $"{relativePath}|{randomizeStart}|{maxInitialDelayMilliseconds}";
+        if (isPiece && key == _pieceAssetKey || !isPiece && key == _tileAssetKey)
+        {
+            return;
+        }
+
+        var asset = relativePath is null
+            ? null
+            : randomizeStart
+                ? GameAssetService.LoadAnimatedInstance(
+                    relativePath,
+                    TimeSpan.FromMilliseconds(Random.Shared.Next(maxInitialDelayMilliseconds + 1)))
+                : GameAssetService.LoadAnimated(relativePath);
+
+        if (isPiece)
+        {
+            _pieceAssetKey = key;
+            PieceAsset = asset;
+        }
+        else
+        {
+            _tileAssetKey = key;
+            TileAsset = asset;
+        }
     }
 }

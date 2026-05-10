@@ -58,7 +58,7 @@
                         <Grid>
                             <Ellipse Width="21" Height="21" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,5,0,0"/>
                             <Ellipse Width="32" Height="20" Fill="#2F9BE4" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
-                            <Image Source="{Binding BuddyProfileImage}"
+                            <Image Source="{Binding BuddyProfileImageAsset.CurrentFrame}"
                                    Stretch="UniformToFill"/>
                         </Grid>
                     </Border>
@@ -113,8 +113,10 @@
                         </MenuItem>
                         <MenuItem Header="Games" Classes="headerAction">
                             <MenuItem Header="Tic Tac Toe" Command="{Binding StartTicTacToeCommand}"/>
-                            <MenuItem Header="Checkers" Command="{Binding StartCheckersCommand}"/>
+                            <MenuItem Header="Leapfrog Checkers" Command="{Binding StartCheckersCommand}"/>
                             <MenuItem Header="Minesweeper Flags" Command="{Binding StartMinesweeperFlagsCommand}"/>
+                            <Separator/>
+                            <MenuItem Header="Buddy Pong" Command="{Binding StartBuddyPongCommand}"/>
                         </MenuItem>
                         <MenuItem Header="Screen Share" Classes="headerAction">
                             <MenuItem Header="Share screen..." Click="ScreenShare_Click"/>
@@ -144,7 +146,7 @@
                                     <Grid>
                                         <Ellipse Width="17" Height="17" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,4,0,0"/>
                                         <Ellipse Width="25" Height="16" Fill="#2F9BE4" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
-                                        <Image Source="{Binding AvatarImage}"
+                                        <Image Source="{Binding AvatarImage.CurrentFrame}"
                                                Stretch="UniformToFill"/>
                                     </Grid>
                                 </Border>

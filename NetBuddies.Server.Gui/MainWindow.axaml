@@ -202,6 +202,61 @@
                 </Border>
 
                 <Border Classes="panel">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Real-Time Game Server"
+                                   Foreground="#E8F4FF"
+                                   FontSize="20"
+                                   FontWeight="Bold"/>
+                        <CheckBox x:Name="RealtimeEnabledBox"
+                                  Content="Start real-time game rooms with the Net Buddies server"
+                                  Foreground="#E8F4FF"
+                                  IsChecked="True"/>
+                        <Grid ColumnDefinitions="*,160,160" ColumnSpacing="10">
+                            <StackPanel>
+                                <TextBlock Text="PUBLIC GAME SERVER URL" Classes="label"/>
+                                <TextBox x:Name="RealtimePublicUrlBox"
+                                         Text="ws://127.0.0.1:2568"
+                                         PlaceholderText="ws://your-server-ip:2568"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="GAME PORT" Classes="label"/>
+                                <NumericUpDown x:Name="RealtimePortBox"
+                                               Value="2567"
+                                               Minimum="1"
+                                               Maximum="65535"
+                                               Increment="1"
+                                               MinWidth="150"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="BIND ADDRESS" Classes="label"/>
+                                <TextBox x:Name="RealtimeBindBox"
+                                         Text="0.0.0.0"
+                                         PlaceholderText="0.0.0.0"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
+                            <TextBlock x:Name="RealtimeStatusText"
+                                       Text="Colyseus rooms: lobby, Buddy Pong, Snake Battle. Install dependencies once, then Start Server."
+                                       Foreground="#B9D0E4"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Content="Install/update"
+                                    Click="InstallRealtimeDependencies_Click"
+                                    MinWidth="130"/>
+                            <Button Grid.Column="2"
+                                    Content="Check Node"
+                                    Click="CheckNode_Click"
+                                    MinWidth="110"/>
+                            <Button Grid.Column="3"
+                                    Content="Open folder"
+                                    Click="OpenRealtimeFolder_Click"
+                                    MinWidth="110"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="panel">
                     <StackPanel Spacing="8">
                         <TextBlock Text="stunnel Config Preview"
                                    Foreground="#E8F4FF"

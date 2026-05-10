@@ -1,0 +1,14 @@
+{
+  "name": "netbuddies-realtime-games",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Net Buddies real-time game rooms powered by Colyseus.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "colyseus": "^0.17.10",
+    "ws": "^8.18.3"
+  }
+}

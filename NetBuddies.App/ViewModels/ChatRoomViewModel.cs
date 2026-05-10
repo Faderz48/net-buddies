@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NetBuddies.App.Services;
 using NetBuddies.App.Voice;
 using NetBuddies.Core;
 
@@ -11,10 +11,10 @@ namespace NetBuddies.App.ViewModels;
 public partial class ChatRoomViewModel : ViewModelBase, IDisposable
 {
     private readonly BuddyClient _client;
-    private readonly Func<string, Bitmap?> _profileImageProvider;
+    private readonly Func<string, GameImageAsset?> _profileImageProvider;
     private RoomVoiceChannel? _voiceChannel;
 
-    public ChatRoomViewModel(BuddyClient client, string roomName, Func<string, Bitmap?> profileImageProvider)
+    public ChatRoomViewModel(BuddyClient client, string roomName, Func<string, GameImageAsset?> profileImageProvider)
     {
         _client = client;
         _profileImageProvider = profileImageProvider;

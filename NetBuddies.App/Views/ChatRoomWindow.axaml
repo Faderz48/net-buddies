@@ -74,7 +74,7 @@
                                             <Grid>
                                                 <Ellipse Width="17" Height="17" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,4,0,0"/>
                                                 <Ellipse Width="25" Height="16" Fill="#2F9BE4" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
-                                                <Image Source="{Binding AvatarImage}"
+                                                <Image Source="{Binding AvatarImage.CurrentFrame}"
                                                        Stretch="UniformToFill"/>
                                             </Grid>
                                         </Border>

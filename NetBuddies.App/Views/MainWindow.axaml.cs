@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using NetBuddies.App.Services;
 using NetBuddies.App.ViewModels;
@@ -12,6 +13,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        PopulateThemeMenu();
+        ThemeMenu.PointerEntered += (_, _) => PopulateThemeMenu();
         DataContextChanged += (_, _) => HookViewModel();
     }
 
@@ -104,13 +107,40 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LightTheme_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void PopulateThemeMenu()
     {
-        AppThemeService.SetTheme(AppThemeService.LightTheme);
+        ThemeMenu.ItemsSource = AppThemeService.DiscoverThemes()
+            .Select(theme =>
+            {
+                var menuItem = new MenuItem
+                {
+                    Header = theme.Name.Equals(AppThemeService.CurrentThemeName, StringComparison.OrdinalIgnoreCase)
+                        ? $"{theme.DisplayName} ✓"
+                        : theme.DisplayName,
+                    Tag = theme.Name
+                };
+                menuItem.Click += Theme_Click;
+                return menuItem;
+            })
+            .ToList();
     }
 
-    private void DarkTheme_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void Theme_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        AppThemeService.SetTheme(AppThemeService.DarkTheme);
+        if (sender is MenuItem { Tag: string themeName })
+        {
+            AppThemeService.SetTheme(themeName);
+            PopulateThemeMenu();
+        }
+    }
+
+    private async void ThemeCreator_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var creator = new ThemeCreatorWindow
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        await creator.ShowDialog<bool?>(this);
+        PopulateThemeMenu();
     }
 }

@@ -15,6 +15,7 @@ publish/
 *.log
 *.tmp
 TestResults/
+/realtime-games/node_modules/
 artifacts/**/*.tmp
 artifacts/latest/NetBuddies-win-x64-*.zip
 /netbuddies_installer.iss

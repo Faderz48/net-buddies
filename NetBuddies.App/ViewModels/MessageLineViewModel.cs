@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NAudio.Wave;
+using NetBuddies.App.Services;
 using SkiaSharp;
 
 namespace NetBuddies.App.ViewModels;
@@ -22,7 +23,7 @@ public sealed partial class MessageLineViewModel : ViewModelBase
         string body,
         bool isMine,
         bool isEvent = false,
-        Bitmap? avatarImage = null,
+        GameImageAsset? avatarImage = null,
         string voiceNotePath = "",
         byte[]? inlineImageBytes = null,
         string inlineFileName = "")
@@ -46,7 +47,7 @@ public sealed partial class MessageLineViewModel : ViewModelBase
     public string Body { get; }
     public bool IsMine { get; }
     public bool IsEvent { get; }
-    public Bitmap? AvatarImage { get; }
+    public GameImageAsset? AvatarImage { get; }
     public string VoiceNotePath { get; }
     public string InlineFileName { get; }
     public bool HasVoiceNote => !string.IsNullOrWhiteSpace(VoiceNotePath);

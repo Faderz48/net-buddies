@@ -1,0 +1,27 @@
+{
+  "displayName": "Light",
+  "base": "Light",
+  "colors": {
+    "NbPageBrush": "#D8EEFF",
+    "NbPanelBrush": "#F7FBFF",
+    "NbCardBrush": "#F8FBFF",
+    "NbCardBorderBrush": "#BED7F2",
+    "NbMessageBrush": "#FFFFFF",
+    "NbMessageBorderBrush": "#A9D3F8",
+    "NbHeaderBrush": "#086AC2",
+    "NbHeaderAccentBrush": "#2B9BF0",
+    "NbHeaderBorderBrush": "#04599F",
+    "NbPrimaryBrush": "#0B74D1",
+    "NbTextBrush": "#173C5D",
+    "NbStrongTextBrush": "#111827",
+    "NbSubtleTextBrush": "#406A88",
+    "NbLinkBrush": "#0048A8",
+    "NbInputBrush": "#FFFFFF",
+    "NbInputBorderBrush": "#D0E3F6",
+    "NbAvatarBrush": "#EBF3FF",
+    "NbAvatarBorderBrush": "#B9CDE4",
+    "NbInviteBrush": "#FFF8D9",
+    "NbInviteBorderBrush": "#E2C45F",
+    "NbInviteTextBrush": "#6F5A00"
+  }
+}

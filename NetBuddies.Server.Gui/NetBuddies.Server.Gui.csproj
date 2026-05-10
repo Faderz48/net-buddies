@@ -9,6 +9,11 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <Content Include="..\realtime-games\**\*" Exclude="..\realtime-games\node_modules\**\*">
+      <Link>realtime-games\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

@@ -95,9 +95,9 @@
                                     Margin="0">
                                 <Viewbox Stretch="Uniform">
                             <Grid Width="44" Height="44">
-                            <Image Source="{Binding TileImage}"
+                            <Image Source="{Binding TileAsset.CurrentFrame}"
                                    Stretch="UniformToFill"/>
-                            <Image Source="{Binding PieceImage}"
+                            <Image Source="{Binding PieceAsset.CurrentFrame}"
                                    Stretch="Uniform"
                                    IsVisible="{Binding ShowImage}"/>
                             <Grid HorizontalAlignment="Center"

@@ -12,8 +12,12 @@ namespace NetBuddies.Server.Gui;
 public partial class MainWindow : Window
 {
     private const string LinuxStunnelInstallCommand = "sudo apt update && sudo apt install stunnel4";
+    private const string LinuxNodeInstallCommand = "sudo apt update && sudo apt install nodejs npm";
+    private const string WindowsStunnelInstallHint = "Install stunnel for Windows from https://www.stunnel.org/downloads.html, then reopen Net Buddies Server.";
+    private const string WindowsNodeInstallHint = "Install Node.js 22+ for Windows from https://nodejs.org/, then reopen Net Buddies Server.";
     private readonly BuddyServer _server = new();
     private Process? _stunnelProcess;
+    private Process? _realtimeProcess;
     private string _lastStunnelConfigPath = "";
     private bool _isInitialized;
 
@@ -54,6 +58,11 @@ public partial class MainWindow : Window
                 StartStunnel(serverPort, publicTlsPort);
             }
 
+            if (RealtimeEnabledBox.IsChecked == true)
+            {
+                StartRealtimeGameServer();
+            }
+
             HeaderStatusText.Text = mode switch
             {
                 ServerTlsMode.DotNetTls => $"Secure server running on port {serverPort}",
@@ -66,6 +75,10 @@ public partial class MainWindow : Window
                 ServerTlsMode.Stunnel => $"Clients should connect to your server address on port {publicTlsPort} with Use TLS enabled. stunnel forwards to local port {serverPort}.",
                 _ => $"Clients should connect to your server address on port {serverPort} without TLS, unless you are using a private tunnel."
             };
+            if (RealtimeEnabledBox.IsChecked == true)
+            {
+                ConnectionHintText.Text += $" Real-time games use {RealtimePublicUrlBox.Text?.Trim()}.";
+            }
         }
         catch (Exception ex)
         {
@@ -179,7 +192,7 @@ public partial class MainWindow : Window
             TlsModeBox.SelectedIndex = 2;
             if (!CheckStunnelAvailability(logSuccess: true))
             {
-                TlsSetupStatusText.Text = $"Install stunnel first on MX/Linux Mint: {LinuxStunnelInstallCommand}";
+                TlsSetupStatusText.Text = $"Install stunnel first. {StunnelInstallHint}";
                 return;
             }
 
@@ -208,9 +221,9 @@ public partial class MainWindow : Window
     {
         if (Clipboard is not null)
         {
-            await Clipboard.SetTextAsync(LinuxStunnelInstallCommand);
-            AddLog("Copied stunnel install command.");
-            TlsSetupStatusText.Text = $"Copied: {LinuxStunnelInstallCommand}";
+            await Clipboard.SetTextAsync(StunnelInstallClipboardText);
+            AddLog("Copied stunnel install instructions.");
+            TlsSetupStatusText.Text = $"Copied: {StunnelInstallClipboardText}";
         }
     }
 
@@ -231,12 +244,73 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void InstallRealtimeDependencies_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var realtimeDirectory = PrepareWritableRealtimeGamesDirectory();
+            if (!Directory.Exists(realtimeDirectory))
+            {
+                throw new InvalidOperationException($"Real-time game files were not found at {realtimeDirectory}.");
+            }
+
+            var npm = FindExecutable("npm");
+            if (string.IsNullOrWhiteSpace(npm))
+            {
+                throw new InvalidOperationException($"npm was not found. {NodeInstallHint}");
+            }
+
+            RealtimeStatusText.Text = $"Installing Colyseus dependencies in {realtimeDirectory}...";
+            AddLog($"Installing real-time game dependencies in {realtimeDirectory} with npm install...");
+            await RunProcessAsync(npm, ["install"], realtimeDirectory, "realtime npm");
+            RealtimeStatusText.Text = "Real-time game dependencies are installed.";
+        }
+        catch (Exception ex)
+        {
+            RealtimeStatusText.Text = $"Real-time setup failed: {ex.Message}";
+            AddLog(RealtimeStatusText.Text);
+        }
+    }
+
+    private void CheckNode_Click(object? sender, RoutedEventArgs e)
+    {
+        var node = FindExecutable("node");
+        var npm = FindExecutable("npm");
+        if (!string.IsNullOrWhiteSpace(node) && !string.IsNullOrWhiteSpace(npm))
+        {
+            RealtimeStatusText.Text = $"Node found: {node}. npm found: {npm}.";
+            AddLog(RealtimeStatusText.Text);
+            return;
+        }
+
+        RealtimeStatusText.Text = $"Node/npm not found. {NodeInstallHint}";
+        AddLog(RealtimeStatusText.Text);
+    }
+
+    private void OpenRealtimeFolder_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var realtimeDirectory = PrepareWritableRealtimeGamesDirectory();
+            Directory.CreateDirectory(realtimeDirectory);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = realtimeDirectory,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Could not open real-time game folder: {ex.Message}");
+        }
+    }
+
     private void StartStunnel(int serverPort, int publicTlsPort)
     {
         var stunnelExecutable = FindStunnelExecutable();
         if (string.IsNullOrWhiteSpace(stunnelExecutable))
         {
-            throw new InvalidOperationException($"stunnel is not installed or not on PATH. On MX/Linux Mint run: {LinuxStunnelInstallCommand}");
+            throw new InvalidOperationException($"stunnel is not installed or not on PATH. {StunnelInstallHint}");
         }
 
         var pemPath = StunnelPemPathBox.Text?.Trim() ?? "";
@@ -286,8 +360,103 @@ public partial class MainWindow : Window
         AddLog($"Started {stunnelExecutable} using {configPath}");
     }
 
+    private void StartRealtimeGameServer()
+    {
+        if (_realtimeProcess is { HasExited: false })
+        {
+            AddLog("Real-time game server is already running.");
+            return;
+        }
+
+        var node = FindExecutable("node");
+        if (string.IsNullOrWhiteSpace(node))
+        {
+            throw new InvalidOperationException($"Node.js is not installed or not on PATH. {NodeInstallHint}");
+        }
+
+        var realtimeDirectory = PrepareWritableRealtimeGamesDirectory();
+        var serverScript = Path.Combine(realtimeDirectory, "server.js");
+        var nodeModules = Path.Combine(realtimeDirectory, "node_modules");
+        if (!File.Exists(serverScript))
+        {
+            throw new InvalidOperationException($"Real-time game server script was not found: {serverScript}");
+        }
+
+        if (!Directory.Exists(nodeModules))
+        {
+            throw new InvalidOperationException("Real-time game dependencies are not installed. Click Install/update in the Real-Time Game Server panel.");
+        }
+
+        var port = ReadPort(RealtimePortBox, 2567);
+        var bindAddress = string.IsNullOrWhiteSpace(RealtimeBindBox.Text)
+            ? "0.0.0.0"
+            : RealtimeBindBox.Text.Trim();
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = node,
+            WorkingDirectory = realtimeDirectory,
+            UseShellExecute = false,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true
+        };
+        startInfo.ArgumentList.Add(serverScript);
+        startInfo.ArgumentList.Add(port.ToString());
+        startInfo.ArgumentList.Add(bindAddress);
+        startInfo.ArgumentList.Add((port + 1).ToString());
+        startInfo.Environment["NETBUDDIES_REALTIME_PORT"] = port.ToString();
+        startInfo.Environment["NETBUDDIES_REALTIME_BIND"] = bindAddress;
+        startInfo.Environment["NETBUDDIES_PONG_PORT"] = (port + 1).ToString();
+
+        _realtimeProcess = Process.Start(startInfo);
+        if (_realtimeProcess is null)
+        {
+            throw new InvalidOperationException("Real-time game server did not start.");
+        }
+
+        _realtimeProcess.OutputDataReceived += (_, args) =>
+        {
+            if (!string.IsNullOrWhiteSpace(args.Data))
+            {
+                Dispatcher.UIThread.Post(() => AddLog($"realtime: {args.Data}"));
+            }
+        };
+        _realtimeProcess.ErrorDataReceived += (_, args) =>
+        {
+            if (!string.IsNullOrWhiteSpace(args.Data))
+            {
+                Dispatcher.UIThread.Post(() => AddLog($"realtime: {args.Data}"));
+            }
+        };
+        _realtimeProcess.BeginOutputReadLine();
+        _realtimeProcess.BeginErrorReadLine();
+        RealtimeStatusText.Text = $"Real-time game server running on {bindAddress}:{port}. Buddy Pong uses {bindAddress}:{port + 1}.";
+        AddLog($"Started real-time game server on {bindAddress}:{port}; Buddy Pong on {bindAddress}:{port + 1}.");
+    }
+
     private async Task StopEverythingAsync()
     {
+        if (_realtimeProcess is not null)
+        {
+            try
+            {
+                if (!_realtimeProcess.HasExited)
+                {
+                    _realtimeProcess.Kill(entireProcessTree: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"Could not stop real-time game server cleanly: {ex.Message}");
+            }
+            finally
+            {
+                _realtimeProcess.Dispose();
+                _realtimeProcess = null;
+                RealtimeStatusText.Text = "Real-time game server stopped.";
+                AddLog("Real-time game server stopped.");
+            }
+        }
+
         if (_stunnelProcess is not null)
         {
             try
@@ -367,7 +536,7 @@ public partial class MainWindow : Window
         {
             TlsSetupStatusText.Text = CheckStunnelAvailability(logSuccess: false)
                 ? "stunnel is available. Use Quick TLS Setup, then Start Server."
-                : $"stunnel not found. Install it with: {LinuxStunnelInstallCommand}";
+                : $"stunnel not found. {StunnelInstallHint}";
         }
     }
 
@@ -385,7 +554,7 @@ public partial class MainWindow : Window
             return true;
         }
 
-        TlsSetupStatusText.Text = $"stunnel not found. On MX/Linux Mint run: {LinuxStunnelInstallCommand}";
+        TlsSetupStatusText.Text = $"stunnel not found. {StunnelInstallHint}";
         AddLog(TlsSetupStatusText.Text);
         return false;
     }
@@ -394,12 +563,29 @@ public partial class MainWindow : Window
     {
         foreach (var name in new[] { "stunnel", "stunnel4" })
         {
+            var executable = FindExecutable(name);
+            if (!string.IsNullOrWhiteSpace(executable))
+            {
+                return name;
+            }
+        }
+
+        return "";
+    }
+
+    private static string FindExecutable(string name)
+    {
+        var command = OperatingSystem.IsWindows() ? "where" : "which";
+        foreach (var candidate in OperatingSystem.IsWindows() && !Path.HasExtension(name)
+                     ? new[] { name, $"{name}.cmd", $"{name}.exe" }
+                     : new[] { name })
+        {
             try
             {
                 using var process = Process.Start(new ProcessStartInfo
                 {
-                    FileName = OperatingSystem.IsWindows() ? "where" : "which",
-                    ArgumentList = { name },
+                    FileName = command,
+                    ArgumentList = { candidate },
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
@@ -414,7 +600,7 @@ public partial class MainWindow : Window
                 var path = process.StandardOutput.ReadLine();
                 if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(path))
                 {
-                    return name;
+                    return candidate;
                 }
             }
             catch
@@ -423,6 +609,50 @@ public partial class MainWindow : Window
         }
 
         return "";
+    }
+
+    private async Task RunProcessAsync(string fileName, IEnumerable<string> arguments, string workingDirectory, string logPrefix)
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                WorkingDirectory = workingDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            },
+            EnableRaisingEvents = true
+        };
+        foreach (var argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
+
+        process.OutputDataReceived += (_, args) =>
+        {
+            if (!string.IsNullOrWhiteSpace(args.Data))
+            {
+                Dispatcher.UIThread.Post(() => AddLog($"{logPrefix}: {args.Data}"));
+            }
+        };
+        process.ErrorDataReceived += (_, args) =>
+        {
+            if (!string.IsNullOrWhiteSpace(args.Data))
+            {
+                Dispatcher.UIThread.Post(() => AddLog($"{logPrefix}: {args.Data}"));
+            }
+        };
+
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        await process.WaitForExitAsync();
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"{fileName} exited with code {process.ExitCode}.");
+        }
     }
 
     private static int ReadPort(NumericUpDown? control, int fallback)
@@ -448,6 +678,59 @@ public partial class MainWindow : Window
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "NetBuddies",
         "ServerCertificates");
+
+    private static string StunnelInstallHint => OperatingSystem.IsWindows()
+        ? WindowsStunnelInstallHint
+        : $"On MX/Linux Mint run: {LinuxStunnelInstallCommand}";
+
+    private static string StunnelInstallClipboardText => OperatingSystem.IsWindows()
+        ? WindowsStunnelInstallHint
+        : LinuxStunnelInstallCommand;
+
+    private static string NodeInstallHint => OperatingSystem.IsWindows()
+        ? WindowsNodeInstallHint
+        : $"On MX/Linux Mint run: {LinuxNodeInstallCommand}";
+
+    private static string RealtimeGamesDirectory => Path.Combine(AppContext.BaseDirectory, "realtime-games");
+
+    private static string WritableRealtimeGamesDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "NetBuddies",
+        "RealtimeGames");
+
+    private static string PrepareWritableRealtimeGamesDirectory()
+    {
+        var sourceDirectory = RealtimeGamesDirectory;
+        var targetDirectory = WritableRealtimeGamesDirectory;
+        if (!Directory.Exists(sourceDirectory))
+        {
+            throw new DirectoryNotFoundException($"Bundled real-time game files were not found: {sourceDirectory}");
+        }
+
+        Directory.CreateDirectory(targetDirectory);
+        CopyIfChanged(Path.Combine(sourceDirectory, "package.json"), Path.Combine(targetDirectory, "package.json"));
+        CopyIfChanged(Path.Combine(sourceDirectory, "package-lock.json"), Path.Combine(targetDirectory, "package-lock.json"));
+        CopyIfChanged(Path.Combine(sourceDirectory, "server.js"), Path.Combine(targetDirectory, "server.js"));
+        return targetDirectory;
+    }
+
+    private static void CopyIfChanged(string sourcePath, string targetPath)
+    {
+        if (!File.Exists(sourcePath))
+        {
+            return;
+        }
+
+        if (File.Exists(targetPath)
+            && new FileInfo(sourcePath).Length == new FileInfo(targetPath).Length
+            && File.GetLastWriteTimeUtc(sourcePath) <= File.GetLastWriteTimeUtc(targetPath))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+        File.Copy(sourcePath, targetPath, overwrite: true);
+    }
 
     private enum ServerTlsMode
     {

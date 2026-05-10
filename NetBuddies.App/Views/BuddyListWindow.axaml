@@ -68,12 +68,12 @@
             <MenuItem Header="_Actions">
                 <MenuItem Header="Create Chat Room" Click="CreateChatRoom_Click"/>
             </MenuItem>
-            <MenuItem Header="_Tools"/>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="Theme Creator" Click="ThemeCreator_Click"/>
+            </MenuItem>
             <MenuItem Header="_Settings">
-                <MenuItem Header="Theme">
-                    <MenuItem Header="Light" Click="LightTheme_Click"/>
-                    <MenuItem Header="Dark" Click="DarkTheme_Click"/>
-                </MenuItem>
+                <MenuItem x:Name="ThemeMenu"
+                          Header="Theme"/>
             </MenuItem>
             <MenuItem Header="_Help"/>
         </Menu>
@@ -111,7 +111,7 @@
                             <Grid>
                                 <Ellipse Width="28" Height="28" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,8,0,0"/>
                                 <Ellipse Width="42" Height="26" Fill="#38A1D6" VerticalAlignment="Bottom" Margin="0,0,0,6"/>
-                                <Image Source="{Binding ProfileImage}"
+                                <Image Source="{Binding ProfileImageAsset.CurrentFrame}"
                                        Stretch="UniformToFill"/>
                             </Grid>
                         </Border>
@@ -241,8 +241,10 @@
                                                 <MenuItem Header="Nudge" Click="Nudge_Click"/>
                                                 <MenuItem Header="Play Game">
                                                     <MenuItem Header="Tic Tac Toe" Click="PlayTicTacToe_Click"/>
-                                                    <MenuItem Header="Checkers" Click="PlayCheckers_Click"/>
+                                                    <MenuItem Header="Leapfrog Checkers" Click="PlayCheckers_Click"/>
                                                     <MenuItem Header="Minesweeper Flags" Click="PlayMinesweeper_Click"/>
+                                                    <Separator/>
+                                                    <MenuItem Header="Buddy Pong" Click="PlayBuddyPong_Click"/>
                                                 </MenuItem>
                                             </ContextMenu>
                                         </Grid.ContextMenu>
@@ -255,7 +257,7 @@
                                             <Grid>
                                                 <Ellipse Width="22" Height="22" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,6,0,0"/>
                                                 <Ellipse Width="32" Height="20" Fill="#2F9BE4" VerticalAlignment="Bottom" Margin="0,0,0,5"/>
-                                                <Image Source="{Binding ProfileImage}"
+                                                <Image Source="{Binding ProfileImageAsset.CurrentFrame}"
                                                        Stretch="UniformToFill"/>
                                             </Grid>
                                         </Border>

@@ -1,0 +1,162 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NetBuddies.App.Views.ThemeCreatorWindow"
+        Icon="/Assets/netbuddies.ico"
+        Title="Theme Creator"
+        Width="860"
+        Height="680"
+        MinWidth="720"
+        MinHeight="560"
+        Background="{DynamicResource NbPageBrush}">
+    <Window.Styles>
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="{DynamicResource NbPanelBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NbMessageBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource NbPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="{DynamicResource NbLinkBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*"
+          Background="{DynamicResource NbPageBrush}">
+        <Border Background="{DynamicResource NbHeaderBrush}"
+                BorderBrush="{DynamicResource NbHeaderBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="16">
+            <StackPanel>
+                <TextBlock Text="Theme Creator"
+                           Foreground="White"
+                           FontSize="28"
+                           FontWeight="Bold"/>
+                <TextBlock Text="Create editable Net Buddies theme folders"
+                           Foreground="#E8F7FF"/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,300"
+              ColumnSpacing="12"
+              Margin="14">
+            <Border Classes="panel">
+                <Grid RowDefinitions="Auto,*">
+                    <Grid ColumnDefinitions="*,150"
+                          ColumnSpacing="10">
+                        <StackPanel>
+                            <TextBlock Text="THEME NAME"
+                                       Classes="label"/>
+                            <TextBox x:Name="ThemeNameBox"
+                                     Text="My Theme"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="BASE"
+                                       Classes="label"/>
+                            <ComboBox x:Name="BaseThemeBox"
+                                      SelectedIndex="0"
+                                      SelectionChanged="BaseThemeBox_SelectionChanged">
+                                <ComboBoxItem Content="Light"/>
+                                <ComboBoxItem Content="Dark"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1"
+                                  Margin="0,14,0,0"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="ColorRows"
+                                    Spacing="8"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Classes="panel">
+                <Grid RowDefinitions="Auto,*,Auto"
+                      RowSpacing="12">
+                    <TextBlock Text="Preview"
+                               Foreground="{DynamicResource NbTextBrush}"
+                               FontSize="22"
+                               FontWeight="Bold"/>
+
+                    <Border x:Name="PreviewPage"
+                            Grid.Row="1"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10">
+                        <StackPanel Spacing="10">
+                            <Border x:Name="PreviewHeader"
+                                    CornerRadius="7"
+                                    Padding="10">
+                                <TextBlock Text="Net Buddies"
+                                           Foreground="White"
+                                           FontSize="20"
+                                           FontWeight="Bold"/>
+                            </Border>
+                            <Border x:Name="PreviewCard"
+                                    BorderThickness="1"
+                                    CornerRadius="7"
+                                    Padding="10">
+                                <StackPanel Spacing="7">
+                                    <TextBlock x:Name="PreviewMainText"
+                                               Text="Buddy online"
+                                               FontWeight="Bold"/>
+                                    <TextBlock x:Name="PreviewSubtleText"
+                                               Text="This shows cards, panels, messages, buttons, and invites."
+                                               TextWrapping="Wrap"/>
+                                    <Border x:Name="PreviewMessage"
+                                            BorderThickness="1"
+                                            CornerRadius="7"
+                                            Padding="8">
+                                        <TextBlock x:Name="PreviewStrongText"
+                                                   Text="Message bubble"/>
+                                    </Border>
+                                    <Button x:Name="PreviewButton"
+                                            Content="Primary button"
+                                            Classes="primary"
+                                            HorizontalAlignment="Left"/>
+                                    <Border x:Name="PreviewInvite"
+                                            BorderThickness="1"
+                                            CornerRadius="7"
+                                            Padding="8">
+                                        <TextBlock x:Name="PreviewInviteText"
+                                                   Text="Activity invite"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="2"
+                          RowDefinitions="Auto,Auto"
+                          RowSpacing="8">
+                        <TextBlock x:Name="StatusText"
+                                   Foreground="{DynamicResource NbSubtleTextBrush}"
+                                   TextWrapping="Wrap"/>
+                        <StackPanel Grid.Row="1"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    Spacing="8">
+                            <Button Content="Save Theme"
+                                    Classes="primary"
+                                    Click="SaveTheme_Click"
+                                    MinWidth="110"/>
+                            <Button Content="Close"
+                                    Click="Close_Click"
+                                    MinWidth="80"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

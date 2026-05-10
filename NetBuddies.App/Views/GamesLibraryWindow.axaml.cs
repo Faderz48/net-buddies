@@ -11,6 +11,7 @@ public partial class GamesLibraryWindow : Window
         TicTacToeIcon.Source = GameAssetService.Load("TicTacToe/icon.png");
         CheckersIcon.Source = GameAssetService.Load("Checkers/icon.png");
         MinesweeperFlagsIcon.Source = GameAssetService.Load("MinesweeperFlags/icon.png");
+        BuddyPongIcon.Source = GameAssetService.Load("BuddyPong/icon.png");
     }
 
     private void Close_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

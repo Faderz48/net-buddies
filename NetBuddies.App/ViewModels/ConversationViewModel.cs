@@ -69,7 +69,7 @@ public sealed partial class FileTransferViewModel(string transferId, Action<File
 public partial class ConversationViewModel : ViewModelBase, IDisposable
 {
     private readonly BuddyClient _client;
-    private readonly Func<string, Bitmap?> _profileImageProvider;
+    private readonly Func<string, GameImageAsset?> _profileImageProvider;
     private readonly Dictionary<string, PendingOutgoingFile> _pendingOutgoingFiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IncomingFileTransfer> _incomingFiles = new(StringComparer.OrdinalIgnoreCase);
     private RoomVoiceChannel? _privateVoiceChannel;
@@ -126,6 +126,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private Bitmap? _buddyProfileImage;
 
     [ObservableProperty]
+    private GameImageAsset? _buddyProfileImageAsset;
+
+    [ObservableProperty]
     private bool _isRecordingVoiceNote;
 
     [ObservableProperty]
@@ -140,12 +143,12 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private bool _enterSendsMessage;
 
-    public ConversationViewModel(BuddyClient client, string buddyName, Func<string, Bitmap?> profileImageProvider)
+    public ConversationViewModel(BuddyClient client, string buddyName, Func<string, GameImageAsset?> profileImageProvider)
     {
         _client = client;
         _profileImageProvider = profileImageProvider;
         BuddyName = buddyName;
-        BuddyProfileImage = GetAvatar(BuddyName);
+        BuddyProfileImageAsset = GetAvatar(BuddyName);
         LoadMicrophones();
     }
 
@@ -228,6 +231,12 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private void StartMinesweeperFlags()
     {
         GameRequested?.Invoke(this, NetBuddiesGameType.MinesweeperFlags);
+    }
+
+    [RelayCommand]
+    private void StartBuddyPong()
+    {
+        GameRequested?.Invoke(this, NetBuddiesGameType.BuddyPong);
     }
 
     [RelayCommand]
@@ -895,7 +904,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     public void RefreshProfileImages()
     {
-        BuddyProfileImage = GetAvatar(BuddyName);
+        BuddyProfileImageAsset = GetAvatar(BuddyName);
     }
 
     public MessageLineViewModel CreateMessage(
@@ -913,7 +922,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         return new MessageLineViewModel(sender, body, isMine, isEvent, GetAvatar(avatarName), voiceNotePath, inlineImageBytes, inlineFileName);
     }
 
-    private Bitmap? GetAvatar(string sender)
+    private GameImageAsset? GetAvatar(string sender)
     {
         if (sender.Equals("Net Buddies", StringComparison.OrdinalIgnoreCase))
         {

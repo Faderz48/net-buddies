@@ -71,11 +71,11 @@
                                    Stretch="UniformToFill"/>
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="Checkers"
+                            <TextBlock Text="Leapfrog Checkers"
                                        Foreground="{DynamicResource NbStrongTextBrush}"
                                        FontSize="18"
                                        FontWeight="Bold"/>
-                            <TextBlock Text="Board game battles with captures, turns, and kings."
+                            <TextBlock Text="Board game battles with forced jumps, chain captures, and kings."
                                        Foreground="{DynamicResource NbSubtleTextBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
@@ -99,6 +99,25 @@
                         </StackPanel>
                     </Grid>
                 </Border>
+
+                <Border Classes="gameCard">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Border Classes="gameIcon" Background="#EAF3FF">
+                            <Image x:Name="BuddyPongIcon"
+                                   Stretch="UniformToFill"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Buddy Pong"
+                                       Foreground="{DynamicResource NbStrongTextBrush}"
+                                       FontSize="18"
+                                       FontWeight="Bold"/>
+                            <TextBlock Text="Fast real-time paddle match over the game server."
+                                       Foreground="{DynamicResource NbSubtleTextBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
             </StackPanel>
         </ScrollViewer>
 

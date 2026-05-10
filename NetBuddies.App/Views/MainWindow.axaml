@@ -63,11 +63,12 @@
 
         <Menu Grid.Row="1"
               Background="{DynamicResource NbPanelBrush}">
+            <MenuItem Header="_Tools">
+                <MenuItem Header="Theme Creator" Click="ThemeCreator_Click"/>
+            </MenuItem>
             <MenuItem Header="_Settings">
-                <MenuItem Header="Theme">
-                    <MenuItem Header="Light" Click="LightTheme_Click"/>
-                    <MenuItem Header="Dark" Click="DarkTheme_Click"/>
-                </MenuItem>
+                <MenuItem x:Name="ThemeMenu"
+                          Header="Theme"/>
             </MenuItem>
         </Menu>
 
@@ -91,7 +92,7 @@
                             <Grid>
                                 <Ellipse Width="30" Height="30" Fill="#FFD1A5" VerticalAlignment="Top" Margin="0,8,0,0"/>
                                 <Ellipse Width="44" Height="26" Fill="#2F9BE4" VerticalAlignment="Bottom" Margin="0,0,0,7"/>
-                                <Image Source="{Binding ProfileImage}"
+                                <Image Source="{Binding ProfileImageAsset.CurrentFrame}"
                                        Stretch="UniformToFill"/>
                             </Grid>
                         </Border>

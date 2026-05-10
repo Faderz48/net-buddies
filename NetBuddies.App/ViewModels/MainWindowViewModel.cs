@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -15,6 +16,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private readonly Dictionary<string, GameSessionViewModel> _gameSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ChatRoomViewModel> _roomSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ScreenShareViewModel> _screenShares = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RealtimePongViewModel> _realtimePongSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ScreenShareSource> _pendingScreenShareSources = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _pendingScreenShareQualities = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _pendingScreenShareFrameRates = new(StringComparer.OrdinalIgnoreCase);
@@ -26,6 +28,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public event Action<ConversationViewModel>? OpenConversationRequested;
     public event Action<GameSessionViewModel>? OpenGameRequested;
+    public event Action<RealtimePongViewModel>? OpenRealtimePongRequested;
     public event Action<ChatRoomViewModel>? OpenRoomRequested;
     public event Action<ScreenShareViewModel>? OpenScreenShareRequested;
     public event Action? OpenBuddyListRequested;
@@ -67,6 +70,9 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     [ObservableProperty]
     private Bitmap? _profileImage;
+
+    [ObservableProperty]
+    private GameImageAsset? _profileImageAsset;
 
     [ObservableProperty]
     private string _onlineHeading = "Online (0)";
@@ -269,6 +275,11 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             return Task.CompletedTask;
         }
 
+        if (gameType == NetBuddiesGameType.BuddyPong)
+        {
+            return StartRealtimePongAsync(buddy.Name);
+        }
+
         var session = new GameSessionViewModel(
             _client,
             Guid.NewGuid().ToString("N"),
@@ -283,6 +294,31 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             isMine: true,
             isEvent: true));
         return session.SendInviteAsync();
+    }
+
+    private async Task StartRealtimePongAsync(string buddyName)
+    {
+        if (_client is null)
+        {
+            return;
+        }
+
+        var gameId = Guid.NewGuid().ToString("N");
+        var serverUrl = BuildRealtimeServerUrl();
+        var payload = JsonSerializer.Serialize(new RealtimeGameInvite(serverUrl));
+        var conversation = GetConversation(buddyName);
+        conversation.Messages.Add(conversation.CreateMessage(
+            "Net Buddies",
+            $"Buddy Pong invite sent. Waiting for {buddyName} to accept.",
+            isMine: true,
+            isEvent: true));
+        _realtimePongSessions[gameId] = new RealtimePongViewModel(
+            gameId,
+            buddyName,
+            DisplayName,
+            serverUrl,
+            isHost: true);
+        await _client.SendGameAsync(buddyName, gameId, NetBuddiesGameType.BuddyPong.ToString(), "Invite", payload);
     }
 
     public async Task CreateChatRoomAsync()
@@ -424,6 +460,12 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                     var conversation = GetConversation(packet.From);
                     conversation.ReceiveGameInvite(packet, GameDisplayName(gameType));
                     OpenConversationRequested?.Invoke(conversation);
+                    return;
+                }
+
+                if (gameType == NetBuddiesGameType.BuddyPong)
+                {
+                    HandleRealtimePongPacket(packet);
                     return;
                 }
 
@@ -660,6 +702,18 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         var gameType = Enum.TryParse<NetBuddiesGameType>(packet.GameType, out var parsed)
             ? parsed
             : NetBuddiesGameType.TicTacToe;
+        if (gameType == NetBuddiesGameType.BuddyPong)
+        {
+            var invite = ParseRealtimeGameInvite(packet.Text);
+            var serverUrl = string.IsNullOrWhiteSpace(invite.ServerUrl)
+                ? BuildRealtimeServerUrl()
+                : invite.ServerUrl;
+            var pongSession = CreateRealtimePongSession(packet.GameId, packet.From, serverUrl, isHost: false);
+            OpenRealtimePongRequested?.Invoke(pongSession);
+            _ = _client.SendGameAsync(packet.From, packet.GameId, packet.GameType, "Accept", packet.Text);
+            return;
+        }
+
         var session = new GameSessionViewModel(
             _client,
             packet.GameId,
@@ -676,6 +730,46 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         var room = GetRoom(packet.RoomName);
         OpenRoomRequested?.Invoke(room);
         _ = _client?.SendRoomAsync(packet.RoomName, "Join");
+    }
+
+    private void HandleRealtimePongPacket(NetBuddiesPacket packet)
+    {
+        if (_client is null)
+        {
+            return;
+        }
+
+        if (packet.GameAction == "Accept")
+        {
+            var invite = ParseRealtimeGameInvite(packet.Text);
+            var serverUrl = string.IsNullOrWhiteSpace(invite.ServerUrl)
+                ? BuildRealtimeServerUrl()
+                : invite.ServerUrl;
+            var session = _realtimePongSessions.TryGetValue(packet.GameId, out var existing)
+                ? existing
+                : CreateRealtimePongSession(packet.GameId, packet.From, serverUrl, isHost: true);
+            OpenRealtimePongRequested?.Invoke(session);
+            return;
+        }
+
+        if (packet.GameAction == "Decline")
+        {
+            var conversation = GetConversation(packet.From);
+            conversation.ReceiveGameDecline(packet, "Buddy Pong");
+            OpenConversationRequested?.Invoke(conversation);
+        }
+    }
+
+    private RealtimePongViewModel CreateRealtimePongSession(string gameId, string buddyName, string serverUrl, bool isHost)
+    {
+        if (_realtimePongSessions.TryGetValue(gameId, out var existing))
+        {
+            return existing;
+        }
+
+        var session = new RealtimePongViewModel(gameId, buddyName, DisplayName, serverUrl, isHost);
+        _realtimePongSessions[gameId] = session;
+        return session;
     }
 
     public async Task SendScreenShareInviteAsync(
@@ -770,11 +864,37 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         return gameType switch
         {
             NetBuddiesGameType.TicTacToe => "Tic Tac Toe",
-            NetBuddiesGameType.Checkers => "Checkers",
+            NetBuddiesGameType.Checkers => "Leapfrog Checkers",
             NetBuddiesGameType.MinesweeperFlags => "Minesweeper Flags",
+            NetBuddiesGameType.BuddyPong => "Buddy Pong",
             _ => "a game"
         };
     }
+
+    private string BuildRealtimeServerUrl()
+    {
+        var host = HostAddress.Trim();
+        if (string.IsNullOrWhiteSpace(host) || host == "0.0.0.0")
+        {
+            host = "127.0.0.1";
+        }
+
+        return $"ws://{host}:2568";
+    }
+
+    private static RealtimeGameInvite ParseRealtimeGameInvite(string text)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<RealtimeGameInvite>(text) ?? new RealtimeGameInvite("");
+        }
+        catch
+        {
+            return new RealtimeGameInvite("");
+        }
+    }
+
+    private sealed record RealtimeGameInvite(string ServerUrl);
 
     private ChatRoomViewModel GetRoom(string roomName)
     {
@@ -818,6 +938,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         var bytes = await File.ReadAllBytesAsync(path);
         ProfileImageBase64 = Convert.ToBase64String(bytes);
         ProfileImage = ImageFromBase64(ProfileImageBase64);
+        ProfileImageAsset = GameAssetService.LoadAnimatedFromBytes("Me-profile", bytes);
         SaveProfile();
         RefreshConversationImages();
         await PublishProfileAsync();
@@ -852,19 +973,21 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         }
     }
 
-    private Bitmap? GetProfileImageForSender(string sender)
+    private GameImageAsset? GetProfileImageForSender(string sender)
     {
         if (sender.Equals("Me", StringComparison.OrdinalIgnoreCase)
             || sender.Equals(DisplayName, StringComparison.OrdinalIgnoreCase)
             || (_client?.DisplayName.Length > 0
                 && sender.Equals(_client.DisplayName, StringComparison.OrdinalIgnoreCase)))
         {
-            return ProfileImage;
+            return ProfileImageAsset;
         }
 
         var profile = _onlineProfiles.FirstOrDefault(profile =>
             profile.Name.Equals(sender, StringComparison.OrdinalIgnoreCase));
-        return profile is null ? null : ImageFromBase64(profile.ProfileImageBase64);
+        return profile is null
+            ? null
+            : AnimatedImageFromBase64(profile.ProfileImageBase64, $"{profile.Name}-profile");
     }
 
     partial void OnDisplayNameChanged(string value)
@@ -918,6 +1041,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             : settings.Status;
         ProfileImageBase64 = settings.ProfileImageBase64;
         ProfileImage = ImageFromBase64(ProfileImageBase64);
+        ProfileImageAsset = AnimatedImageFromBase64(ProfileImageBase64, "Me-profile");
         HostAddress = string.IsNullOrWhiteSpace(settings.LastHostAddress)
             ? HostAddress
             : settings.LastHostAddress;
@@ -983,6 +1107,24 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         {
             var bytes = Convert.FromBase64String(imageBase64);
             return new Bitmap(new MemoryStream(bytes));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static GameImageAsset? AnimatedImageFromBase64(string imageBase64, string name)
+    {
+        if (string.IsNullOrWhiteSpace(imageBase64))
+        {
+            return null;
+        }
+
+        try
+        {
+            var bytes = Convert.FromBase64String(imageBase64);
+            return GameAssetService.LoadAnimatedFromBytes(name, bytes);
         }
         catch
         {
