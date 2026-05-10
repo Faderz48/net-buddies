@@ -577,7 +577,7 @@ public partial class MainWindow : Window
     {
         var command = OperatingSystem.IsWindows() ? "where" : "which";
         foreach (var candidate in OperatingSystem.IsWindows() && !Path.HasExtension(name)
-                     ? new[] { name, $"{name}.cmd", $"{name}.exe" }
+                     ? new[] { $"{name}.cmd", $"{name}.exe", $"{name}.bat", name }
                      : new[] { name })
         {
             try
@@ -596,11 +596,21 @@ public partial class MainWindow : Window
                     continue;
                 }
 
+                var output = process.StandardOutput.ReadToEnd();
                 process.WaitForExit(1000);
-                var path = process.StandardOutput.ReadLine();
-                if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(path))
+                if (process.ExitCode != 0)
                 {
-                    return path.Trim();
+                    continue;
+                }
+
+                foreach (var path in output.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var trimmed = path.Trim();
+                    if (!string.IsNullOrWhiteSpace(trimmed)
+                        && (!OperatingSystem.IsWindows() || IsWindowsExecutablePath(trimmed)))
+                    {
+                        return trimmed;
+                    }
                 }
             }
             catch
@@ -609,6 +619,15 @@ public partial class MainWindow : Window
         }
 
         return "";
+    }
+
+    private static bool IsWindowsExecutablePath(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".exe", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".bat", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".com", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task RunProcessAsync(string fileName, IEnumerable<string> arguments, string workingDirectory, string logPrefix)
