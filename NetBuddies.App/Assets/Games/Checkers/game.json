@@ -1,0 +1,8 @@
+{
+  "id": "Checkers",
+  "name": "Leapfrog Checkers",
+  "description": "Board game battles with forced jumps, chain captures, and kings.",
+  "runtime": "builtin",
+  "builtInType": "Checkers",
+  "icon": "icon.png"
+}

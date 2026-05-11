@@ -1,10 +1,14 @@
 const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const { Server, Room } = require("colyseus");
 const { WebSocketServer } = require("ws");
 
 const port = Number.parseInt(process.env.NETBUDDIES_REALTIME_PORT || process.argv[2] || "2567", 10);
 const bindAddress = process.env.NETBUDDIES_REALTIME_BIND || process.argv[3] || "0.0.0.0";
 const pongPort = Number.parseInt(process.env.NETBUDDIES_PONG_PORT || process.argv[4] || String(port + 1), 10);
+const gamesDirectory = process.env.NETBUDDIES_REALTIME_GAMES_DIR || path.join(__dirname, "games");
+const detectedGames = loadGameManifests(gamesDirectory);
 class NetBuddiesLobbyRoom extends Room {
   onCreate(options) {
     this.maxClients = Number.parseInt(options.maxClients || "16", 10);
@@ -210,6 +214,12 @@ const httpServer = http.createServer((request, response) => {
     return;
   }
 
+  if (request.url === "/games") {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ games: detectedGames }));
+    return;
+  }
+
   response.writeHead(200, { "content-type": "text/plain" });
   response.end("Net Buddies real-time game server is running.\n");
 });
@@ -236,6 +246,58 @@ pongServer.listen(pongPort, bindAddress);
 console.log(`Net Buddies real-time game server listening on ${bindAddress}:${port}`);
 console.log(`Health: http://127.0.0.1:${port}/health`);
 console.log(`Buddy Pong WebSocket: ws://127.0.0.1:${pongPort}/netbuddies/pong/{roomId}`);
+console.log(`Detected ${detectedGames.length} modular game${detectedGames.length === 1 ? "" : "s"} in ${gamesDirectory}`);
+for (const game of detectedGames) {
+  console.log(`Game: ${game.name} [${game.id}] runtime=${game.runtime} room=${game.room || "none"} client=${game.clientKind || "default"}`);
+}
+
+function loadGameManifests(rootDirectory) {
+  if (!fs.existsSync(rootDirectory)) {
+    return [];
+  }
+
+  return fs.readdirSync(rootDirectory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("_"))
+    .map((entry) => readGameManifest(path.join(rootDirectory, entry.name), entry.name))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function readGameManifest(folderPath, fallbackId) {
+  const manifestPath = path.join(folderPath, "game.json");
+  if (!fs.existsSync(manifestPath)) {
+    return {
+      id: fallbackId,
+      name: fallbackId,
+      runtime: "missing game.json",
+      room: "",
+      clientKind: "",
+      folder: folderPath
+    };
+  }
+
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    return {
+      id: String(manifest.id || fallbackId),
+      name: String(manifest.name || manifest.id || fallbackId),
+      description: String(manifest.description || ""),
+      runtime: String(manifest.runtime || "realtime"),
+      room: String(manifest.room || ""),
+      clientKind: String(manifest.clientKind || ""),
+      serverPortOffset: Number.parseInt(manifest.serverPortOffset || "0", 10) || 0,
+      folder: folderPath
+    };
+  } catch (error) {
+    return {
+      id: fallbackId,
+      name: fallbackId,
+      runtime: `invalid game.json: ${error.message}`,
+      room: "",
+      clientKind: "",
+      folder: folderPath
+    };
+  }
+}
 
 function attachNetBuddiesPong(server) {
   const sockets = new WebSocketServer({ noServer: true });

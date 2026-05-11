@@ -1,0 +1,8 @@
+{
+  "id": "MinesweeperFlags",
+  "name": "Minesweeper Flags",
+  "description": "MSN-style flag race on a larger grid.",
+  "runtime": "builtin",
+  "builtInType": "MinesweeperFlags",
+  "icon": "icon.png"
+}

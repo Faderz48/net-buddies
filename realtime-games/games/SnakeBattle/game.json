@@ -1,0 +1,10 @@
+{
+  "id": "SnakeBattle",
+  "name": "Snake Battle",
+  "description": "Real-time arena snake room available on the game server.",
+  "runtime": "realtime",
+  "room": "snake_battle",
+  "clientKind": "generic-state",
+  "serverPortOffset": 0,
+  "icon": "icon.png"
+}

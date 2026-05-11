@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -30,6 +31,7 @@ public partial class MainWindow : Window
         UpdateStunnelPreview();
         AddLog("Net Buddies Server GUI ready.");
         CheckStunnelAvailability(logSuccess: false);
+        RefreshRealtimeGamesList(logSuccess: false);
     }
 
     private async void StartServer_Click(object? sender, RoutedEventArgs e)
@@ -264,6 +266,7 @@ public partial class MainWindow : Window
             AddLog($"Installing real-time game dependencies in {realtimeDirectory} with npm install...");
             await RunProcessAsync(npm, ["install"], realtimeDirectory, "realtime npm");
             RealtimeStatusText.Text = "Real-time game dependencies are installed.";
+            RefreshRealtimeGamesList(logSuccess: true);
         }
         catch (Exception ex)
         {
@@ -303,6 +306,32 @@ public partial class MainWindow : Window
         {
             AddLog($"Could not open real-time game folder: {ex.Message}");
         }
+    }
+
+    private void OpenRealtimeGamesFolder_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var realtimeDirectory = PrepareWritableRealtimeGamesDirectory();
+            var gamesDirectory = Path.Combine(realtimeDirectory, "games");
+            Directory.CreateDirectory(gamesDirectory);
+            EnsureRealtimeGameTemplate(gamesDirectory);
+            RefreshRealtimeGamesList(logSuccess: false);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = gamesDirectory,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Could not open modular games folder: {ex.Message}");
+        }
+    }
+
+    private void RefreshRealtimeGames_Click(object? sender, RoutedEventArgs e)
+    {
+        RefreshRealtimeGamesList(logSuccess: true);
     }
 
     private void StartStunnel(int serverPort, int publicTlsPort)
@@ -375,6 +404,7 @@ public partial class MainWindow : Window
         }
 
         var realtimeDirectory = PrepareWritableRealtimeGamesDirectory();
+        var games = RefreshRealtimeGamesList(logSuccess: true);
         var serverScript = Path.Combine(realtimeDirectory, "server.js");
         var nodeModules = Path.Combine(realtimeDirectory, "node_modules");
         if (!File.Exists(serverScript))
@@ -406,6 +436,7 @@ public partial class MainWindow : Window
         startInfo.Environment["NETBUDDIES_REALTIME_PORT"] = port.ToString();
         startInfo.Environment["NETBUDDIES_REALTIME_BIND"] = bindAddress;
         startInfo.Environment["NETBUDDIES_PONG_PORT"] = (port + 1).ToString();
+        startInfo.Environment["NETBUDDIES_REALTIME_GAMES_DIR"] = Path.Combine(realtimeDirectory, "games");
 
         _realtimeProcess = Process.Start(startInfo);
         if (_realtimeProcess is null)
@@ -429,8 +460,9 @@ public partial class MainWindow : Window
         };
         _realtimeProcess.BeginOutputReadLine();
         _realtimeProcess.BeginErrorReadLine();
-        RealtimeStatusText.Text = $"Real-time game server running on {bindAddress}:{port}. Buddy Pong uses {bindAddress}:{port + 1}.";
-        AddLog($"Started real-time game server on {bindAddress}:{port}; Buddy Pong on {bindAddress}:{port + 1}.");
+        var gamesSummary = games.Count == 1 ? "1 game" : $"{games.Count} games";
+        RealtimeStatusText.Text = $"Real-time game server running on {bindAddress}:{port}. Buddy Pong uses {bindAddress}:{port + 1}. Detected {gamesSummary}.";
+        AddLog($"Started real-time game server on {bindAddress}:{port}; Buddy Pong on {bindAddress}:{port + 1}; detected {gamesSummary}.");
     }
 
     private async Task StopEverythingAsync()
@@ -728,6 +760,113 @@ public partial class MainWindow : Window
         "NetBuddies",
         "RealtimeGames");
 
+    private List<RealtimeGameInfo> RefreshRealtimeGamesList(bool logSuccess)
+    {
+        try
+        {
+            var realtimeDirectory = PrepareWritableRealtimeGamesDirectory();
+            var gamesDirectory = Path.Combine(realtimeDirectory, "games");
+            EnsureRealtimeGameTemplate(gamesDirectory);
+            var games = LoadRealtimeGameManifests(gamesDirectory);
+            RealtimeGamesBox.Text = games.Count == 0
+                ? $"No modular games found in {gamesDirectory}.{Environment.NewLine}Use Open games to add a game folder with game.json."
+                : string.Join(Environment.NewLine, games.Select(game => game.Summary));
+
+            if (logSuccess)
+            {
+                AddLog(games.Count == 0
+                    ? $"No modular real-time games found in {gamesDirectory}."
+                    : $"Detected modular real-time games: {string.Join(", ", games.Select(game => game.Name))}");
+            }
+
+            return games;
+        }
+        catch (Exception ex)
+        {
+            RealtimeGamesBox.Text = $"Could not scan modular games: {ex.Message}";
+            if (logSuccess)
+            {
+                AddLog(RealtimeGamesBox.Text);
+            }
+
+            return [];
+        }
+    }
+
+    private static List<RealtimeGameInfo> LoadRealtimeGameManifests(string gamesDirectory)
+    {
+        if (!Directory.Exists(gamesDirectory))
+        {
+            return [];
+        }
+
+        var games = new List<RealtimeGameInfo>();
+        foreach (var directory in Directory.EnumerateDirectories(gamesDirectory).OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            var folderName = Path.GetFileName(directory);
+            if (string.IsNullOrWhiteSpace(folderName) || folderName.StartsWith('_'))
+            {
+                continue;
+            }
+
+            var manifestPath = Path.Combine(directory, "game.json");
+            if (!File.Exists(manifestPath))
+            {
+                games.Add(new RealtimeGameInfo(folderName, folderName, "missing game.json", "", "", directory));
+                continue;
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(File.ReadAllText(manifestPath));
+                var root = document.RootElement;
+                var id = ReadJsonString(root, "id", folderName);
+                var name = ReadJsonString(root, "name", id);
+                var runtime = ReadJsonString(root, "runtime", "realtime");
+                var room = ReadJsonString(root, "room", "");
+                var clientKind = ReadJsonString(root, "clientKind", "");
+                games.Add(new RealtimeGameInfo(id, name, runtime, room, clientKind, directory));
+            }
+            catch (Exception ex)
+            {
+                games.Add(new RealtimeGameInfo(folderName, folderName, $"invalid game.json: {ex.Message}", "", "", directory));
+            }
+        }
+
+        return games;
+    }
+
+    private static string ReadJsonString(JsonElement root, string propertyName, string fallback)
+    {
+        return root.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString() ?? fallback
+            : fallback;
+    }
+
+    private static void EnsureRealtimeGameTemplate(string gamesDirectory)
+    {
+        var templateDirectory = Path.Combine(gamesDirectory, "_GameFolderTemplate");
+        var templatePath = Path.Combine(templateDirectory, "game.json");
+        if (File.Exists(templatePath))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(templateDirectory);
+        File.WriteAllText(templatePath, """
+            {
+              "id": "MyRealtimeGame",
+              "name": "My Real-Time Game",
+              "description": "Shows in the server GUI and client game list.",
+              "runtime": "realtime",
+              "room": "my_realtime_game",
+              "clientKind": "generic-state",
+              "serverPortOffset": 0,
+              "icon": "icon.png"
+            }
+            """);
+    }
+
     private static string PrepareWritableRealtimeGamesDirectory()
     {
         var sourceDirectory = RealtimeGamesDirectory;
@@ -741,7 +880,22 @@ public partial class MainWindow : Window
         CopyIfChanged(Path.Combine(sourceDirectory, "package.json"), Path.Combine(targetDirectory, "package.json"));
         CopyIfChanged(Path.Combine(sourceDirectory, "package-lock.json"), Path.Combine(targetDirectory, "package-lock.json"));
         CopyIfChanged(Path.Combine(sourceDirectory, "server.js"), Path.Combine(targetDirectory, "server.js"));
+        CopyDirectoryIfChanged(Path.Combine(sourceDirectory, "games"), Path.Combine(targetDirectory, "games"));
         return targetDirectory;
+    }
+
+    private static void CopyDirectoryIfChanged(string sourceDirectory, string targetDirectory)
+    {
+        if (!Directory.Exists(sourceDirectory))
+        {
+            return;
+        }
+
+        foreach (var sourcePath in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, sourcePath);
+            CopyIfChanged(sourcePath, Path.Combine(targetDirectory, relativePath));
+        }
     }
 
     private static void CopyIfChanged(string sourcePath, string targetPath)
@@ -760,6 +914,25 @@ public partial class MainWindow : Window
 
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
         File.Copy(sourcePath, targetPath, overwrite: true);
+    }
+
+    private sealed record RealtimeGameInfo(
+        string Id,
+        string Name,
+        string Runtime,
+        string Room,
+        string ClientKind,
+        string FolderPath)
+    {
+        public string Summary
+        {
+            get
+            {
+                var room = string.IsNullOrWhiteSpace(Room) ? "no room" : Room;
+                var clientKind = string.IsNullOrWhiteSpace(ClientKind) ? "default client" : ClientKind;
+                return $"{Name} [{Id}] - {Runtime}, room: {room}, client: {clientKind}";
+            }
+        }
     }
 
     private enum ServerTlsMode

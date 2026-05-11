@@ -27,10 +27,19 @@ public static class GameAssetService
         Bitmap? bitmap = null;
         foreach (var candidate in GetAssetCandidates(normalized))
         {
-            var loosePath = GetLoosePath(candidate);
-            if (File.Exists(loosePath))
+            foreach (var loosePath in GetLooseAssetPaths(candidate))
             {
+                if (!File.Exists(loosePath))
+                {
+                    continue;
+                }
+
                 bitmap = new Bitmap(loosePath);
+                break;
+            }
+
+            if (bitmap is not null)
+            {
                 break;
             }
 
@@ -78,14 +87,20 @@ public static class GameAssetService
         return CreateFrameSet(name, bytes)?.CreateAsset();
     }
 
-    public static string ExternalGamesFolder => Path.Combine(AppContext.BaseDirectory, AssetRoot);
+    public static string ShippedGamesFolder => Path.Combine(AppContext.BaseDirectory, AssetRoot);
 
-    private static string GetLoosePath(string normalized)
+    public static string UserGamesFolder => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "NetBuddies",
+        "Games");
+
+    public static string ExternalGamesFolder => UserGamesFolder;
+
+    public static IEnumerable<string> GetLooseAssetPaths(string normalized)
     {
-        return Path.Combine(
-            AppContext.BaseDirectory,
-            AssetRoot,
-            normalized.Replace('/', Path.DirectorySeparatorChar));
+        var relative = normalized.Replace('/', Path.DirectorySeparatorChar);
+        yield return Path.Combine(UserGamesFolder, relative);
+        yield return Path.Combine(ShippedGamesFolder, relative);
     }
 
     private static IEnumerable<string> GetAssetCandidates(string normalized)
@@ -108,12 +123,14 @@ public static class GameAssetService
 
         foreach (var candidate in GetAssetCandidates(normalized))
         {
-            var loosePath = GetLoosePath(candidate);
-            if (File.Exists(loosePath))
+            foreach (var loosePath in GetLooseAssetPaths(candidate))
             {
-                var frameSet = CreateFrameSet(candidate, File.ReadAllBytes(loosePath));
-                FrameCache[normalized] = frameSet;
-                return frameSet;
+                if (File.Exists(loosePath))
+                {
+                    var frameSet = CreateFrameSet(candidate, File.ReadAllBytes(loosePath));
+                    FrameCache[normalized] = frameSet;
+                    return frameSet;
+                }
             }
 
             var resourceUri = new Uri($"avares://NetBuddies.App/{AssetRoot}/{candidate}");

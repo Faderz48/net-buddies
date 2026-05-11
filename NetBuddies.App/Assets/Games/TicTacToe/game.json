@@ -1,0 +1,8 @@
+{
+  "id": "TicTacToe",
+  "name": "Tic Tac Toe",
+  "description": "Classic quick match with polished X and O pieces.",
+  "runtime": "builtin",
+  "builtInType": "TicTacToe",
+  "icon": "icon.png"
+}

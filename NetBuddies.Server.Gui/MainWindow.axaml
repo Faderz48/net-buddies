@@ -253,6 +253,28 @@
                                     Click="OpenRealtimeFolder_Click"
                                     MinWidth="110"/>
                         </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <StackPanel>
+                                <TextBlock Text="DETECTED MODULAR GAMES" Classes="label"/>
+                                <TextBox x:Name="RealtimeGamesBox"
+                                         MinHeight="88"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         FontFamily="Consolas"
+                                         Text="No games scanned yet."/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="8"
+                                        VerticalAlignment="Bottom">
+                                <Button Content="Refresh games"
+                                        Click="RefreshRealtimeGames_Click"
+                                        MinWidth="130"/>
+                                <Button Content="Open games"
+                                        Click="OpenRealtimeGamesFolder_Click"
+                                        MinWidth="130"/>
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
                 </Border>
 

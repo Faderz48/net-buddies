@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia.Controls;
 using NetBuddies.App.Services;
 
@@ -8,10 +9,28 @@ public partial class GamesLibraryWindow : Window
     public GamesLibraryWindow()
     {
         InitializeComponent();
-        TicTacToeIcon.Source = GameAssetService.Load("TicTacToe/icon.png");
-        CheckersIcon.Source = GameAssetService.Load("Checkers/icon.png");
-        MinesweeperFlagsIcon.Source = GameAssetService.Load("MinesweeperFlags/icon.png");
-        BuddyPongIcon.Source = GameAssetService.Load("BuddyPong/icon.png");
+        RefreshGames();
+    }
+
+    private void RefreshGames()
+    {
+        DataContext = GameCatalogService.LoadGames();
+    }
+
+    private void OpenGamesFolder_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        Directory.CreateDirectory(GameAssetService.UserGamesFolder);
+        GameCatalogService.CreateExampleManifest(Path.Combine(GameAssetService.UserGamesFolder, "_GameFolderTemplate"));
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = GameAssetService.UserGamesFolder,
+            UseShellExecute = true
+        });
+    }
+
+    private void Refresh_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        RefreshGames();
     }
 
     private void Close_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

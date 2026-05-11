@@ -62,6 +62,19 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path publish/netbuddies-server-win-x64/* -DestinationPath publish/NetBuddies-Server-win-x64.zip -Force
 
+      - name: Publish Windows server GUI
+        run: >
+          dotnet publish NetBuddies.Server.Gui/NetBuddies.Server.Gui.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=false
+          --output publish/netbuddies-server-gui-win-x64
+
+      - name: Zip Windows server GUI
+        shell: pwsh
+        run: Compress-Archive -Path publish/netbuddies-server-gui-win-x64/* -DestinationPath publish/NetBuddies-Server-Gui-win-x64.zip -Force
+
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -70,6 +83,7 @@ jobs:
             publish/NetBuddies-Client-Setup.exe
             publish/NetBuddies-win-x64.zip
             publish/NetBuddies-Server-win-x64.zip
+            publish/NetBuddies-Server-Gui-win-x64.zip
 
   linux-server:
     name: Build Linux server
