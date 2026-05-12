@@ -15,8 +15,9 @@ public sealed class GameCatalogItem
     public int ServerPortOffset { get; init; }
     public string FolderPath { get; init; } = "";
     public string IconPath { get; init; } = "icon.png";
+    public string ClientEntry { get; init; } = "";
     public bool IsUserGame { get; init; }
-    public bool IsPlayable => Runtime is "builtin" or "realtime";
+    public bool IsPlayable => Runtime is "builtin" or "realtime" or "web-game";
     public string SourceLabel => IsUserGame ? "User game folder" : "Built in";
     public string PlayModeLabel => Runtime switch
     {
@@ -24,10 +25,12 @@ public sealed class GameCatalogItem
         "realtime" => string.IsNullOrWhiteSpace(Room)
             ? "Real-time server game"
             : $"Real-time server game: {Room}",
+        "web-game" => "Folder-based web game",
         "asset-pack" => "Asset pack / custom folder",
         _ => Runtime
     };
     public Bitmap? Icon => GameAssetService.Load($"{Id}/{IconPath}");
+    public string ClientEntryPath => Path.Combine(FolderPath, string.IsNullOrWhiteSpace(ClientEntry) ? "client/index.html" : ClientEntry);
 }
 
 public static class GameCatalogService
@@ -51,6 +54,11 @@ public static class GameCatalogService
             .ToArray();
     }
 
+    public static GameCatalogItem? FindGame(string id)
+    {
+        return LoadGames().FirstOrDefault(game => game.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+    }
+
     public static void CreateExampleManifest(string folderPath)
     {
         Directory.CreateDirectory(folderPath);
@@ -65,15 +73,42 @@ public static class GameCatalogService
         {
             Id = folderName,
             Name = folderName,
-            Description = "Custom Net Buddies game folder.",
-            Runtime = "asset-pack",
+            Description = "Custom Net Buddies web game folder.",
+            Runtime = "web-game",
             BuiltInType = "",
             Room = "",
-            ClientKind = "",
-            ServerPortOffset = 0,
-            Icon = "icon.png"
+            ClientKind = "web-game",
+            ServerPortOffset = 1,
+            Icon = "icon.png",
+            ClientEntry = "client/index.html"
         };
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest, JsonOptions));
+        var clientDirectory = Path.Combine(folderPath, "client");
+        Directory.CreateDirectory(clientDirectory);
+        var indexPath = Path.Combine(clientDirectory, "index.html");
+        if (!File.Exists(indexPath))
+        {
+            File.WriteAllText(indexPath, """
+                <!doctype html>
+                <html lang="en">
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1">
+                  <title>My Net Buddies Game</title>
+                </head>
+                <body>
+                  <h1>My Net Buddies Game</h1>
+                  <p>This folder is detected without rebuilding the app.</p>
+                  <script>
+                    const params = new URLSearchParams(location.search);
+                    const relay = params.get("relay");
+                    const socket = new WebSocket(relay);
+                    socket.addEventListener("message", event => console.log("relay", event.data));
+                  </script>
+                </body>
+                </html>
+                """);
+        }
     }
 
     private static void LoadFromFolder(string root, bool isUserGame, Dictionary<string, GameCatalogItem> games)
@@ -109,6 +144,7 @@ public static class GameCatalogService
                 ClientKind = Clean(manifest?.ClientKind) ?? "",
                 ServerPortOffset = manifest?.ServerPortOffset ?? 0,
                 IconPath = Clean(manifest?.Icon) ?? "icon.png",
+                ClientEntry = Clean(manifest?.ClientEntry) ?? "client/index.html",
                 FolderPath = directory,
                 IsUserGame = isUserGame
             };
@@ -148,5 +184,6 @@ public static class GameCatalogService
         public string ClientKind { get; init; } = "";
         public int ServerPortOffset { get; init; }
         public string Icon { get; init; } = "";
+        public string ClientEntry { get; init; } = "";
     }
 }

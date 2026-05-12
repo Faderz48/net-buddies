@@ -2,9 +2,11 @@
   "id": "BuddyPong",
   "name": "Buddy Pong",
   "description": "Fast real-time paddle match over the game server.",
-  "runtime": "realtime",
-  "room": "netbuddies/pong",
-  "clientKind": "pong",
-  "serverPortOffset": 1,
+  "runtime": "web-game",
+  "room": "buddy_pong",
+  "clientKind": "web-game",
+  "serverPortOffset": 0,
+  "clientEntry": "client/index.html",
+  "serverEntry": "server/room.js",
   "icon": "icon.png"
 }

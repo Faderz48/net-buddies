@@ -16,7 +16,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private readonly Dictionary<string, GameSessionViewModel> _gameSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ChatRoomViewModel> _roomSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ScreenShareViewModel> _screenShares = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, RealtimePongViewModel> _realtimePongSessions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, WebGameViewModel> _webGameSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ScreenShareSource> _pendingScreenShareSources = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _pendingScreenShareQualities = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _pendingScreenShareFrameRates = new(StringComparer.OrdinalIgnoreCase);
@@ -28,7 +28,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public event Action<ConversationViewModel>? OpenConversationRequested;
     public event Action<GameSessionViewModel>? OpenGameRequested;
-    public event Action<RealtimePongViewModel>? OpenRealtimePongRequested;
+    public event Action<WebGameViewModel>? OpenWebGameRequested;
     public event Action<ChatRoomViewModel>? OpenRoomRequested;
     public event Action<ScreenShareViewModel>? OpenScreenShareRequested;
     public event Action? OpenBuddyListRequested;
@@ -91,6 +91,9 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     [ObservableProperty]
     private bool _trustSelfSignedCertificate = true;
+
+    [ObservableProperty]
+    private string _serverCertificateFingerprint = "";
 
     [ObservableProperty]
     private string _serverInviteCode = "";
@@ -178,6 +181,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                 ProfileImageBase64,
                 UseSecureTls,
                 TrustSelfSignedCertificate,
+                ServerCertificateFingerprint,
                 ServerInviteCode);
             IsConnected = true;
             StatusText = $"{SelectedStatus} as {DisplayName}";
@@ -275,9 +279,10 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             return Task.CompletedTask;
         }
 
-        if (gameType == NetBuddiesGameType.BuddyPong)
+        if (gameType == NetBuddiesGameType.BuddyPong
+            && GameCatalogService.FindGame("BuddyPong") is { } pong)
         {
-            return StartRealtimePongAsync(buddy.Name);
+            return StartCatalogGameAsync(buddy, pong);
         }
 
         var session = new GameSessionViewModel(
@@ -296,29 +301,63 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         return session.SendInviteAsync();
     }
 
-    private async Task StartRealtimePongAsync(string buddyName)
+    public Task StartCatalogGameAsync(BuddyViewModel? buddy, GameCatalogItem game)
+    {
+        if (buddy is null || _client is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (game.Runtime == "web-game")
+        {
+            return StartWebGameAsync(buddy.Name, game);
+        }
+
+        var conversation = GetConversation(buddy.Name);
+        conversation.Messages.Add(conversation.CreateMessage(
+            "Net Buddies",
+            $"{game.Name} is detected but does not have a playable runtime.",
+            isMine: true,
+            isEvent: true));
+        return Task.CompletedTask;
+    }
+
+    private async Task StartWebGameAsync(string buddyName, GameCatalogItem game)
     {
         if (_client is null)
         {
             return;
         }
 
+        if (!File.Exists(game.ClientEntryPath))
+        {
+            var conversation = GetConversation(buddyName);
+            conversation.Messages.Add(conversation.CreateMessage(
+                "Net Buddies",
+                $"{game.Name} is missing {game.ClientEntryPath}.",
+                isMine: true,
+                isEvent: true));
+            return;
+        }
+
         var gameId = Guid.NewGuid().ToString("N");
-        var serverUrl = BuildRealtimeServerUrl();
-        var payload = JsonSerializer.Serialize(new RealtimeGameInvite(serverUrl));
-        var conversation = GetConversation(buddyName);
-        conversation.Messages.Add(conversation.CreateMessage(
-            "Net Buddies",
-            $"Buddy Pong invite sent. Waiting for {buddyName} to accept.",
-            isMine: true,
-            isEvent: true));
-        _realtimePongSessions[gameId] = new RealtimePongViewModel(
+        var serverUrl = BuildColyseusServerUrl();
+        var payload = JsonSerializer.Serialize(new WebGameInvite(game.Id, game.Name, serverUrl));
+        _webGameSessions[gameId] = new WebGameViewModel(
             gameId,
+            game,
             buddyName,
             DisplayName,
             serverUrl,
             isHost: true);
-        await _client.SendGameAsync(buddyName, gameId, NetBuddiesGameType.BuddyPong.ToString(), "Invite", payload);
+
+        var chat = GetConversation(buddyName);
+        chat.Messages.Add(chat.CreateMessage(
+            "Net Buddies",
+            $"{game.Name} invite sent. Waiting for {buddyName} to accept.",
+            isMine: true,
+            isEvent: true));
+        await _client.SendGameAsync(buddyName, gameId, "WebGame", "Invite", payload);
     }
 
     public async Task CreateChatRoomAsync()
@@ -458,14 +497,14 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                 if (packet.GameAction == "Invite")
                 {
                     var conversation = GetConversation(packet.From);
-                    conversation.ReceiveGameInvite(packet, GameDisplayName(gameType));
+                    conversation.ReceiveGameInvite(packet, GameInviteDisplayName(packet, gameType));
                     OpenConversationRequested?.Invoke(conversation);
                     return;
                 }
 
-                if (gameType == NetBuddiesGameType.BuddyPong)
+                if (packet.GameType == "WebGame")
                 {
-                    HandleRealtimePongPacket(packet);
+                    HandleWebGamePacket(packet);
                     return;
                 }
 
@@ -483,7 +522,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                 if (packet.GameAction == "Decline")
                 {
                     var conversation = GetConversation(packet.From);
-                    conversation.ReceiveGameDecline(packet, GameDisplayName(gameType));
+                    conversation.ReceiveGameDecline(packet, GameInviteDisplayName(packet, gameType));
                     OpenConversationRequested?.Invoke(conversation);
                     return;
                 }
@@ -671,6 +710,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         {
             conversation = new ConversationViewModel(_client, buddyName, GetProfileImageForSender);
             conversation.GameRequested += Conversation_GameRequested;
+            conversation.CatalogGameRequested += Conversation_CatalogGameRequested;
             conversation.RoomInviteRequested += Conversation_RoomInviteRequested;
             conversation.GameAccepted += Conversation_GameAccepted;
             conversation.RoomInviteAccepted += Conversation_RoomInviteAccepted;
@@ -685,6 +725,11 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private void Conversation_GameRequested(ConversationViewModel conversation, NetBuddiesGameType gameType)
     {
         _ = StartGameAsync(conversation.BuddyName, gameType);
+    }
+
+    private void Conversation_CatalogGameRequested(ConversationViewModel conversation, GameCatalogItem game)
+    {
+        _ = StartCatalogGameAsync(new BuddyViewModel(new BuddyProfile { Name = conversation.BuddyName }), game);
     }
 
     private void Conversation_RoomInviteRequested(ConversationViewModel conversation, string roomName)
@@ -702,15 +747,35 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         var gameType = Enum.TryParse<NetBuddiesGameType>(packet.GameType, out var parsed)
             ? parsed
             : NetBuddiesGameType.TicTacToe;
+        if (packet.GameType == "WebGame")
+        {
+            var invite = ParseWebGameInvite(packet.Text);
+            var game = GameCatalogService.FindGame(invite.GameId);
+            if (game is null)
+            {
+                conversation.Messages.Add(conversation.CreateMessage(
+                    "Net Buddies",
+                    $"Could not find game folder for {invite.GameName}.",
+                    isMine: false,
+                    isEvent: true));
+                _ = _client.SendGameAsync(packet.From, packet.GameId, packet.GameType, "Decline", packet.Text);
+                return;
+            }
+
+            var webSession = CreateWebGameSession(packet.GameId, packet.From, game, invite, isHost: false);
+            OpenWebGameRequested?.Invoke(webSession);
+            _ = _client.SendGameAsync(packet.From, packet.GameId, packet.GameType, "Accept", packet.Text);
+            return;
+        }
+
         if (gameType == NetBuddiesGameType.BuddyPong)
         {
-            var invite = ParseRealtimeGameInvite(packet.Text);
-            var serverUrl = string.IsNullOrWhiteSpace(invite.ServerUrl)
-                ? BuildRealtimeServerUrl()
-                : invite.ServerUrl;
-            var pongSession = CreateRealtimePongSession(packet.GameId, packet.From, serverUrl, isHost: false);
-            OpenRealtimePongRequested?.Invoke(pongSession);
-            _ = _client.SendGameAsync(packet.From, packet.GameId, packet.GameType, "Accept", packet.Text);
+            conversation.Messages.Add(conversation.CreateMessage(
+                "Net Buddies",
+                "That Buddy Pong invite was sent by the old game system. Ask them to send Buddy Pong from the Games menu again.",
+                isMine: false,
+                isEvent: true));
+            _ = _client.SendGameAsync(packet.From, packet.GameId, packet.GameType, "Decline", packet.Text);
             return;
         }
 
@@ -732,44 +797,30 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         _ = _client?.SendRoomAsync(packet.RoomName, "Join");
     }
 
-    private void HandleRealtimePongPacket(NetBuddiesPacket packet)
+    private void HandleWebGamePacket(NetBuddiesPacket packet)
     {
-        if (_client is null)
-        {
-            return;
-        }
-
         if (packet.GameAction == "Accept")
         {
-            var invite = ParseRealtimeGameInvite(packet.Text);
-            var serverUrl = string.IsNullOrWhiteSpace(invite.ServerUrl)
-                ? BuildRealtimeServerUrl()
-                : invite.ServerUrl;
-            var session = _realtimePongSessions.TryGetValue(packet.GameId, out var existing)
+            var invite = ParseWebGameInvite(packet.Text);
+            var game = GameCatalogService.FindGame(invite.GameId);
+            if (game is null)
+            {
+                return;
+            }
+
+            var session = _webGameSessions.TryGetValue(packet.GameId, out var existing)
                 ? existing
-                : CreateRealtimePongSession(packet.GameId, packet.From, serverUrl, isHost: true);
-            OpenRealtimePongRequested?.Invoke(session);
+                : CreateWebGameSession(packet.GameId, packet.From, game, invite, isHost: true);
+            OpenWebGameRequested?.Invoke(session);
             return;
         }
 
         if (packet.GameAction == "Decline")
         {
             var conversation = GetConversation(packet.From);
-            conversation.ReceiveGameDecline(packet, "Buddy Pong");
+            conversation.ReceiveGameDecline(packet, ParseWebGameInvite(packet.Text).GameName);
             OpenConversationRequested?.Invoke(conversation);
         }
-    }
-
-    private RealtimePongViewModel CreateRealtimePongSession(string gameId, string buddyName, string serverUrl, bool isHost)
-    {
-        if (_realtimePongSessions.TryGetValue(gameId, out var existing))
-        {
-            return existing;
-        }
-
-        var session = new RealtimePongViewModel(gameId, buddyName, DisplayName, serverUrl, isHost);
-        _realtimePongSessions[gameId] = session;
-        return session;
     }
 
     public async Task SendScreenShareInviteAsync(
@@ -871,7 +922,17 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         };
     }
 
-    private string BuildRealtimeServerUrl()
+    private static string GameInviteDisplayName(NetBuddiesPacket packet, NetBuddiesGameType fallback)
+    {
+        if (packet.GameType == "WebGame")
+        {
+            return ParseWebGameInvite(packet.Text).GameName;
+        }
+
+        return GameDisplayName(fallback);
+    }
+
+    private string BuildColyseusServerUrl()
     {
         var host = HostAddress.Trim();
         if (string.IsNullOrWhiteSpace(host) || host == "0.0.0.0")
@@ -879,22 +940,32 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             host = "127.0.0.1";
         }
 
-        return $"ws://{host}:2568";
+        return $"ws://{host}:2567";
     }
 
-    private static RealtimeGameInvite ParseRealtimeGameInvite(string text)
+    private static WebGameInvite ParseWebGameInvite(string text)
     {
         try
         {
-            return JsonSerializer.Deserialize<RealtimeGameInvite>(text) ?? new RealtimeGameInvite("");
+            return JsonSerializer.Deserialize<WebGameInvite>(text) ?? new WebGameInvite("", "Web Game", "");
         }
         catch
         {
-            return new RealtimeGameInvite("");
+            return new WebGameInvite("", "Web Game", "");
         }
     }
 
-    private sealed record RealtimeGameInvite(string ServerUrl);
+    private WebGameViewModel CreateWebGameSession(string gameId, string buddyName, GameCatalogItem game, WebGameInvite invite, bool isHost)
+    {
+        var serverUrl = string.IsNullOrWhiteSpace(invite.ServerUrl)
+            ? BuildColyseusServerUrl()
+            : invite.ServerUrl;
+        var session = new WebGameViewModel(gameId, game, buddyName, DisplayName, serverUrl, isHost);
+        _webGameSessions[gameId] = session;
+        return session;
+    }
+
+    private sealed record WebGameInvite(string GameId, string GameName, string ServerUrl);
 
     private ChatRoomViewModel GetRoom(string roomName)
     {
@@ -948,7 +1019,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     {
         CertificatePath = path;
         UseSecureTls = !string.IsNullOrWhiteSpace(path);
-        TlsStatus = "TLS certificate selected.";
+        UpdateCertificateFingerprintStatus("TLS certificate selected.");
     }
 
     public void GenerateTlsCertificate()
@@ -958,11 +1029,33 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             CertificatePassword = Guid.NewGuid().ToString("N")[..16];
         }
 
-        CertificatePath = TlsCertificateService.GenerateSelfSignedPfx(CertificatePassword);
+        var generated = TlsCertificateService.GenerateSelfSignedPfx(CertificatePassword);
+        CertificatePath = generated.PfxPath;
+        ServerCertificateFingerprint = generated.Sha256Fingerprint;
         UseSecureTls = true;
-        TrustSelfSignedCertificate = true;
-        TlsStatus = "Generated a self-signed TLS certificate. Clients should use TLS and Trust self-signed.";
+        TrustSelfSignedCertificate = false;
+        TlsStatus = $"Generated a self-signed TLS certificate. Share this SHA-256 fingerprint with clients: {ServerCertificateFingerprint}";
         AddActivity($"Generated TLS certificate: {CertificatePath}");
+    }
+
+    private void UpdateCertificateFingerprintStatus(string prefix)
+    {
+        if (string.IsNullOrWhiteSpace(CertificatePath) || !File.Exists(CertificatePath))
+        {
+            TlsStatus = prefix;
+            return;
+        }
+
+        try
+        {
+            var certificate = X509CertificateLoader.LoadPkcs12FromFile(CertificatePath, CertificatePassword);
+            ServerCertificateFingerprint = TlsCertificateHelper.GetSha256Fingerprint(certificate);
+            TlsStatus = $"{prefix} Share this SHA-256 fingerprint with clients: {ServerCertificateFingerprint}";
+        }
+        catch (Exception ex)
+        {
+            TlsStatus = $"{prefix} Could not read certificate fingerprint: {ex.Message}";
+        }
     }
 
     private void RefreshConversationImages()
@@ -1050,6 +1143,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             : Port;
         UseSecureTls = settings.LastUseSecureTls;
         TrustSelfSignedCertificate = settings.LastTrustSelfSignedCertificate;
+        ServerCertificateFingerprint = settings.LastServerCertificateFingerprint;
         ServerInviteCode = settings.LastServerInviteCode;
         _isLoadingProfile = false;
     }
@@ -1075,6 +1169,9 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             LastTrustSelfSignedCertificate = includeConnectionSettings
                 ? TrustSelfSignedCertificate
                 : existing.LastTrustSelfSignedCertificate,
+            LastServerCertificateFingerprint = includeConnectionSettings
+                ? ServerCertificateFingerprint.Trim()
+                : existing.LastServerCertificateFingerprint,
             LastServerInviteCode = includeConnectionSettings ? ServerInviteCode : existing.LastServerInviteCode
         });
     }

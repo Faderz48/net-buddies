@@ -111,13 +111,9 @@
                             <MenuItem Header="Create Room + Send Invite"
                                       Command="{Binding InviteToRoomCommand}"/>
                         </MenuItem>
-                        <MenuItem Header="Games" Classes="headerAction">
-                            <MenuItem Header="Tic Tac Toe" Command="{Binding StartTicTacToeCommand}"/>
-                            <MenuItem Header="Leapfrog Checkers" Command="{Binding StartCheckersCommand}"/>
-                            <MenuItem Header="Minesweeper Flags" Command="{Binding StartMinesweeperFlagsCommand}"/>
-                            <Separator/>
-                            <MenuItem Header="Buddy Pong" Command="{Binding StartBuddyPongCommand}"/>
-                        </MenuItem>
+                        <MenuItem x:Name="GamesMenu"
+                                  Header="Games"
+                                  Classes="headerAction"/>
                         <MenuItem Header="Screen Share" Classes="headerAction">
                             <MenuItem Header="Share screen..." Click="ScreenShare_Click"/>
                         </MenuItem>

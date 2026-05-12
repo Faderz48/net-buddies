@@ -6,7 +6,7 @@ namespace NetBuddies.App.Services;
 
 public static class TlsCertificateService
 {
-    public static string GenerateSelfSignedPfx(string password, string hostName = "netbuddies.local")
+    public static GeneratedTlsCertificate GenerateSelfSignedPfx(string password, string hostName = "netbuddies.local")
     {
         var certificateDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -33,6 +33,8 @@ public static class TlsCertificateService
         using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(3));
         var path = Path.Combine(certificateDirectory, $"netbuddies-server-{DateTime.Now:yyyyMMdd-HHmmss}.pfx");
         File.WriteAllBytes(path, certificate.Export(X509ContentType.Pfx, password));
-        return path;
+        return new GeneratedTlsCertificate(path, NetBuddies.Core.TlsCertificateHelper.GetSha256Fingerprint(certificate));
     }
 }
+
+public sealed record GeneratedTlsCertificate(string PfxPath, string Sha256Fingerprint);

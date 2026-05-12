@@ -10,7 +10,7 @@ public partial class BuddyListWindow : Window
 {
     private readonly Dictionary<ConversationViewModel, ChatWindow> _chatWindows = [];
     private readonly Dictionary<GameSessionViewModel, GameWindow> _gameWindows = [];
-    private readonly Dictionary<RealtimePongViewModel, RealtimePongWindow> _realtimePongWindows = [];
+    private readonly Dictionary<WebGameViewModel, WebGameWindow> _webGameWindows = [];
     private readonly Dictionary<ChatRoomViewModel, ChatRoomWindow> _roomWindows = [];
     private readonly Dictionary<ScreenShareViewModel, ScreenShareWindow> _screenShareWindows = [];
     private Window? _signInWindow;
@@ -39,8 +39,8 @@ public partial class BuddyListWindow : Window
             viewModel.OpenConversationRequested += OpenConversation;
             viewModel.OpenGameRequested -= OpenGame;
             viewModel.OpenGameRequested += OpenGame;
-            viewModel.OpenRealtimePongRequested -= OpenRealtimePong;
-            viewModel.OpenRealtimePongRequested += OpenRealtimePong;
+            viewModel.OpenWebGameRequested -= OpenWebGame;
+            viewModel.OpenWebGameRequested += OpenWebGame;
             viewModel.OpenRoomRequested -= OpenRoom;
             viewModel.OpenRoomRequested += OpenRoom;
             viewModel.OpenScreenShareRequested -= OpenScreenShare;
@@ -126,20 +126,34 @@ public partial class BuddyListWindow : Window
         window.Activate();
     }
 
-    private void OpenRealtimePong(RealtimePongViewModel game)
+    private void OpenWebGame(WebGameViewModel game)
     {
-        if (_realtimePongWindows.TryGetValue(game, out var existing))
+        if (_webGameWindows.TryGetValue(game, out var existing))
         {
             existing.Activate();
             return;
         }
 
-        var window = new RealtimePongWindow
+        var window = new WebGameWindow
         {
             DataContext = game
         };
-        window.Closed += (_, _) => _realtimePongWindows.Remove(game);
-        _realtimePongWindows[game] = window;
+
+        void CloseRequested(WebGameViewModel closingGame)
+        {
+            if (_webGameWindows.TryGetValue(closingGame, out var openWindow))
+            {
+                openWindow.Close();
+            }
+        }
+
+        game.CloseRequested += CloseRequested;
+        window.Closed += (_, _) =>
+        {
+            game.CloseRequested -= CloseRequested;
+            _webGameWindows.Remove(game);
+        };
+        _webGameWindows[game] = window;
         window.Show();
         window.Activate();
     }
@@ -289,26 +303,6 @@ public partial class BuddyListWindow : Window
         }
     }
 
-    private async void PlayTicTacToe_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        await StartGameFromMenuAsync(sender, NetBuddiesGameType.TicTacToe);
-    }
-
-    private async void PlayCheckers_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        await StartGameFromMenuAsync(sender, NetBuddiesGameType.Checkers);
-    }
-
-    private async void PlayMinesweeper_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        await StartGameFromMenuAsync(sender, NetBuddiesGameType.MinesweeperFlags);
-    }
-
-    private async void PlayBuddyPong_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        await StartGameFromMenuAsync(sender, NetBuddiesGameType.BuddyPong);
-    }
-
     private void PopulateThemeMenu()
     {
         ThemeMenu.ItemsSource = AppThemeService.DiscoverThemes()
@@ -344,26 +338,6 @@ public partial class BuddyListWindow : Window
         };
         await creator.ShowDialog<bool?>(this);
         PopulateThemeMenu();
-    }
-
-    private async Task StartGameFromMenuAsync(object? sender, NetBuddiesGameType gameType)
-    {
-        if (DataContext is not MainWindowViewModel viewModel)
-        {
-            return;
-        }
-
-        var buddy = TryGetBuddy(sender, viewModel, out var menuBuddy)
-            ? menuBuddy
-            : viewModel.SelectedBuddy;
-
-        if (buddy is null)
-        {
-            return;
-        }
-
-        viewModel.SelectedBuddy = buddy;
-        await viewModel.StartGameAsync(buddy, gameType);
     }
 
     private static bool TryGetBuddy(object? sender, out BuddyViewModel buddy)
@@ -431,11 +405,6 @@ public partial class BuddyListWindow : Window
             gameWindow.Close();
         }
 
-        foreach (var pongWindow in _realtimePongWindows.Values.ToArray())
-        {
-            pongWindow.Close();
-        }
-
         foreach (var roomWindow in _roomWindows.Values.ToArray())
         {
             roomWindow.Close();
@@ -452,7 +421,7 @@ public partial class BuddyListWindow : Window
         {
             viewModel.OpenConversationRequested -= OpenConversation;
             viewModel.OpenGameRequested -= OpenGame;
-            viewModel.OpenRealtimePongRequested -= OpenRealtimePong;
+            viewModel.OpenWebGameRequested -= OpenWebGame;
             viewModel.OpenRoomRequested -= OpenRoom;
             viewModel.OpenScreenShareRequested -= OpenScreenShare;
             await viewModel.DisconnectCommand.ExecuteAsync(null);

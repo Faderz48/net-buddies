@@ -87,6 +87,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     public ObservableCollection<FileTransferViewModel> FileTransfers { get; } = [];
     public event Action? NudgeReceived;
     public event Action<ConversationViewModel, NetBuddiesGameType>? GameRequested;
+    public event Action<ConversationViewModel, GameCatalogItem>? CatalogGameRequested;
     public event Action<ConversationViewModel, string>? RoomInviteRequested;
     public event Action<ConversationViewModel, NetBuddiesPacket>? GameAccepted;
     public event Action<ConversationViewModel, NetBuddiesPacket>? RoomInviteAccepted;
@@ -237,6 +238,11 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private void StartBuddyPong()
     {
         GameRequested?.Invoke(this, NetBuddiesGameType.BuddyPong);
+    }
+
+    public void RequestCatalogGame(GameCatalogItem game)
+    {
+        CatalogGameRequested?.Invoke(this, game);
     }
 
     [RelayCommand]

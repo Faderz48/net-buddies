@@ -40,6 +40,7 @@ public sealed class BuddyClient : IAsyncDisposable
         string profileImageBase64,
         bool useTls = false,
         bool allowUntrustedCertificate = false,
+        string trustedCertificateFingerprint = "",
         string inviteCode = "",
         CancellationToken cancellationToken = default)
     {
@@ -59,6 +60,7 @@ public sealed class BuddyClient : IAsyncDisposable
             host,
             useTls,
             allowUntrustedCertificate,
+            trustedCertificateFingerprint,
             cancellationToken);
         _reader = new StreamReader(_transportStream, Encoding.UTF8, leaveOpen: true);
         _writer = new StreamWriter(_transportStream, new UTF8Encoding(false), leaveOpen: true)
@@ -84,6 +86,7 @@ public sealed class BuddyClient : IAsyncDisposable
         string host,
         bool useTls,
         bool allowUntrustedCertificate,
+        string trustedCertificateFingerprint,
         CancellationToken cancellationToken)
     {
         if (!useTls)
@@ -98,7 +101,8 @@ public sealed class BuddyClient : IAsyncDisposable
                 certificate,
                 chain,
                 errors,
-                allowUntrustedCertificate));
+                allowUntrustedCertificate,
+                trustedCertificateFingerprint));
         await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
         {
             TargetHost = host,
@@ -111,14 +115,25 @@ public sealed class BuddyClient : IAsyncDisposable
         X509Certificate? certificate,
         X509Chain? chain,
         SslPolicyErrors errors,
-        bool allowUntrustedCertificate)
+        bool allowUntrustedCertificate,
+        string trustedCertificateFingerprint)
     {
         if (errors == SslPolicyErrors.None)
         {
             return true;
         }
 
-        return allowUntrustedCertificate && certificate is not null;
+        if (certificate is null)
+        {
+            return false;
+        }
+
+        if (TlsCertificateHelper.FingerprintMatches(certificate, trustedCertificateFingerprint))
+        {
+            return true;
+        }
+
+        return allowUntrustedCertificate && string.IsNullOrWhiteSpace(trustedCertificateFingerprint);
     }
 
     public Task SendProfileAsync(string personalMessage, string status, string profileImageBase64)

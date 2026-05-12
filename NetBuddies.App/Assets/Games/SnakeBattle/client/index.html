@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Snake Battle</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #08141f;
+      color: #f7fbff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #0c5b63 0%, #08141f 70%);
+      overflow: hidden;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: end;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .status,
+    .hint {
+      color: #d2f8ff;
+      font-size: 15px;
+    }
+
+    .scores {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      font-weight: 700;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 360px;
+      background: #0a1e2a;
+      border: 1px solid rgba(193, 245, 255, 0.35);
+      box-shadow: inset 0 0 0 1px rgba(19, 116, 132, 0.9);
+    }
+
+    .hint {
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Snake Battle</h1>
+        <div class="status" id="status">Connecting...</div>
+      </div>
+      <div class="scores" id="scores"></div>
+    </header>
+    <canvas id="board" width="960" height="540"></canvas>
+    <div class="hint">Use arrow keys or W/A/S/D. Outlast the other buddies and grab the dots.</div>
+  </div>
+
+  <script src="assets/colyseus.js"></script>
+  <script src="assets/netbuddies-colyseus-compat.js"></script>
+  <script>
+    const query = new URLSearchParams(location.search);
+    const colyseusUrl = query.get("colyseus") || "ws://127.0.0.1:2567";
+    const roomName = query.get("room") || "snake_battle";
+    const roomId = query.get("roomId") || "default";
+    const playerName = query.get("playerName") || "Buddy";
+    const statusEl = document.getElementById("status");
+    const scoresEl = document.getElementById("scores");
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
+    const grid = { width: 24, height: 18 };
+    let room;
+    let ended = false;
+    let state = { food: { x: 4, y: 4 }, players: {} };
+
+    const keyMap = {
+      arrowup: "up",
+      w: "up",
+      arrowdown: "down",
+      s: "down",
+      arrowleft: "left",
+      a: "left",
+      arrowright: "right",
+      d: "right"
+    };
+
+    window.addEventListener("keydown", (event) => {
+      const direction = keyMap[event.key.toLowerCase()];
+      if (direction && room && !ended) {
+        event.preventDefault();
+        room.send("input", { direction });
+      }
+    });
+
+    window.addEventListener("resize", resize);
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      canvas.width = Math.max(1, Math.floor(rect.width * scale));
+      canvas.height = Math.max(1, Math.floor(rect.height * scale));
+      draw();
+    }
+
+    function updateScores() {
+      const players = Object.values(state.players || {});
+      scoresEl.innerHTML = "";
+      for (const player of players) {
+        const entry = document.createElement("span");
+        entry.textContent = `${player.name}: ${player.score}${player.alive ? "" : " out"}`;
+        entry.style.color = player.color || "#ffffff";
+        scoresEl.appendChild(entry);
+      }
+    }
+
+    function draw() {
+      const width = canvas.width;
+      const height = canvas.height;
+      const cell = Math.min(width / grid.width, height / grid.height);
+      const offsetX = (width - cell * grid.width) / 2;
+      const offsetY = (height - cell * grid.height) / 2;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#091a26";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = "rgba(158, 230, 240, 0.12)";
+      ctx.lineWidth = Math.max(1, cell * 0.04);
+      for (let x = 0; x <= grid.width; x++) {
+        ctx.beginPath();
+        ctx.moveTo(offsetX + x * cell, offsetY);
+        ctx.lineTo(offsetX + x * cell, offsetY + grid.height * cell);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= grid.height; y++) {
+        ctx.beginPath();
+        ctx.moveTo(offsetX, offsetY + y * cell);
+        ctx.lineTo(offsetX + grid.width * cell, offsetY + y * cell);
+        ctx.stroke();
+      }
+
+      const food = state.food || { x: 0, y: 0 };
+      ctx.fillStyle = "#ff5168";
+      ctx.beginPath();
+      ctx.arc(offsetX + (food.x + 0.5) * cell, offsetY + (food.y + 0.5) * cell, cell * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+
+      for (const player of Object.values(state.players || {})) {
+        ctx.fillStyle = player.alive ? (player.color || "#90f46d") : "rgba(180, 190, 198, 0.46)";
+        for (const part of player.body || []) {
+          roundRect(offsetX + part.x * cell + cell * 0.08, offsetY + part.y * cell + cell * 0.08, cell * 0.84, cell * 0.84, cell * 0.18);
+          ctx.fill();
+        }
+      }
+    }
+
+    function roundRect(x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + width, y, x + width, y + height, radius);
+      ctx.arcTo(x + width, y + height, x, y + height, radius);
+      ctx.arcTo(x, y + height, x, y, radius);
+      ctx.arcTo(x, y, x + width, y, radius);
+      ctx.closePath();
+    }
+
+    async function connect() {
+      try {
+        const client = new Colyseus.Client(colyseusUrl);
+        room = await client.joinOrCreate(roomName, { roomId, roomKey: roomId, name: playerName });
+        statusEl.textContent = "Waiting for buddy...";
+        room.onMessage("state", (message) => {
+          state = message;
+          if (state.phase === "ended") {
+            renderResult(state);
+          } else {
+            statusEl.textContent = state.phase === "playing" ? "Arena running" : "Waiting for buddy...";
+          }
+          updateScores();
+          draw();
+        });
+        room.onMessage("gameOver", (message) => {
+          ended = true;
+          renderResult(message);
+          setTimeout(() => window.close(), message.reason === "opponent_left" ? 1600 : 5000);
+        });
+        room.onLeave(() => {
+          if (!ended) statusEl.textContent = "Disconnected from game server";
+          room = null;
+        });
+      } catch (error) {
+        statusEl.textContent = `Could not connect: ${error.message || error}`;
+      }
+    }
+
+    resize();
+    connect();
+
+    function renderResult(message) {
+      if (message.reason === "opponent_left") statusEl.textContent = "Buddy left. You win.";
+      else if (!message.winnerSessionId) statusEl.textContent = "Draw.";
+      else statusEl.textContent = message.winnerSessionId === room?.sessionId ? "You win." : "Buddy wins.";
+    }
+  </script>
+</body>
+</html>

@@ -239,13 +239,7 @@
                                                 <MenuItem Header="Send Message" Click="SendMessage_Click"/>
                                                 <MenuItem Header="Send File or Photo" Click="SendFile_Click"/>
                                                 <MenuItem Header="Nudge" Click="Nudge_Click"/>
-                                                <MenuItem Header="Play Game">
-                                                    <MenuItem Header="Tic Tac Toe" Click="PlayTicTacToe_Click"/>
-                                                    <MenuItem Header="Leapfrog Checkers" Click="PlayCheckers_Click"/>
-                                                    <MenuItem Header="Minesweeper Flags" Click="PlayMinesweeper_Click"/>
-                                                    <Separator/>
-                                                    <MenuItem Header="Buddy Pong" Click="PlayBuddyPong_Click"/>
-                                                </MenuItem>
+                                                <MenuItem Header="Open Games" Click="GamesLibrary_Click"/>
                                             </ContextMenu>
                                         </Grid.ContextMenu>
                                         <Border Width="46"
@@ -308,7 +302,7 @@
                                 CommandParameter="{Binding SelectedBuddy}"/>
                         <Button Classes="link"
                                 Content="Play a Game"
-                                Click="PlayTicTacToe_Click"/>
+                                Click="GamesLibrary_Click"/>
                     </StackPanel>
                 </Border>
 

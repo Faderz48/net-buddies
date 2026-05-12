@@ -43,11 +43,16 @@ public static class ServerCertificateService
         File.WriteAllBytes(pfxPath, certificate.Export(X509ContentType.Pfx, password));
         File.WriteAllText(pemPath, certificate.ExportCertificatePem() + key.ExportPkcs8PrivateKeyPem());
 
-        return new GeneratedServerCertificate(pfxPath, pemPath, configPath);
+        return new GeneratedServerCertificate(
+            pfxPath,
+            pemPath,
+            configPath,
+            TlsCertificateHelper.GetSha256Fingerprint(certificate));
     }
 }
 
 public sealed record GeneratedServerCertificate(
     string PfxPath,
     string StunnelPemPath,
-    string SuggestedStunnelConfigPath);
+    string SuggestedStunnelConfigPath,
+    string Sha256Fingerprint);

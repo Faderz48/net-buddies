@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minesweeper Flags</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", sans-serif; background: #eaf6ff; color: #12243a; }
+    header { background: #0d63aa; color: white; padding: 14px 18px; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+    h1 { margin: 0; font-size: 25px; }
+    #status { font-size: 14px; opacity: .95; }
+    main { padding: 14px; display: grid; place-items: center; }
+    #board { display: grid; grid-template-columns: repeat(16, 34px); border: 2px solid #5d8ab3; background: #5d8ab3; }
+    button.cell {
+      width: 34px; height: 34px; border: 1px solid #5d8ab3; padding: 0; font-weight: 800;
+      background: #afd3f4 url("assets/tile-covered.png") center/cover; color: #0757b8;
+    }
+    button.cell.alt { background-image: url("assets/tile-covered-alt.png"); }
+    button.cell.open { background: #eff6fc url("assets/tile-open.png") center/cover; }
+    button.cell.flag { background-image: url("assets/flag.png"); color: transparent; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>Minesweeper Flags</h1><div id="status">Connecting...</div></div>
+    <strong id="score">You 0 | Buddy 0</strong>
+  </header>
+  <main><section id="board"></section></main>
+  <script src="assets/colyseus.js"></script>
+  <script src="assets/netbuddies-colyseus-compat.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const colyseusUrl = params.get("colyseus");
+    const roomName = params.get("room") || "minesweeper_flags";
+    const inviteRoomId = params.get("roomId") || "default";
+    const size = 16;
+    const status = document.querySelector("#status");
+    const score = document.querySelector("#score");
+    const board = document.querySelector("#board");
+    let room = null;
+    let state = null;
+    let ended = false;
+
+    for (let i = 0; i < size * size; i++) {
+      const button = document.createElement("button");
+      button.className = `cell ${i % 2 ? "alt" : ""}`;
+      button.addEventListener("click", () => clickCell(i));
+      board.appendChild(button);
+    }
+
+    connect();
+
+    async function connect() {
+      try {
+        const client = new Colyseus.Client(colyseusUrl);
+        room = await client.joinOrCreate(roomName, { roomId: inviteRoomId, roomKey: inviteRoomId, name: params.get("playerName") || "Buddy" });
+        room.onMessage("hello", () => {
+          status.textContent = "Connected. Waiting for buddy...";
+        });
+        room.onMessage("state", message => {
+          state = message;
+          render();
+        });
+        room.onMessage("gameOver", message => {
+          ended = true;
+          renderResult(message);
+          setTimeout(() => window.close(), message.reason === "opponent_left" ? 1600 : 5000);
+        });
+        room.onLeave(() => {
+          if (!ended) status.textContent = "Disconnected from game server.";
+        });
+      } catch (error) {
+        status.textContent = `Could not join Colyseus room ${roomName}. Check ${colyseusUrl}.`;
+      }
+    }
+
+    function clickCell(index) {
+      if (!room || !state || state.phase !== "playing" || state.turnSessionId !== room.sessionId) {
+        return;
+      }
+
+      room.send("move", { type: "click", index });
+    }
+
+    function render() {
+      if (!state) return;
+      const cells = state.cells || [];
+      [...board.children].forEach((button, index) => {
+        const cell = cells[index] || {};
+        button.textContent = "";
+        button.className = `cell ${index % 2 ? "alt" : ""}`;
+        if (cell.flaggedBy) button.className += " flag";
+        else if (cell.open) {
+          button.className += " open";
+          button.textContent = cell.count ? String(cell.count) : "";
+        }
+      });
+
+      const players = state.players || {};
+      const me = players[room?.sessionId || ""];
+      const buddy = Object.entries(players).find(([id]) => id !== room?.sessionId)?.[1];
+      score.textContent = `You ${me?.score || 0} | Buddy ${buddy?.score || 0}`;
+      if (state.phase === "waiting") {
+        status.textContent = "Waiting for buddy...";
+      } else if (state.phase === "ended") {
+        renderResult(state);
+      } else {
+        status.textContent = state.turnSessionId === room.sessionId ? "Your turn." : "Buddy's turn.";
+      }
+    }
+
+    function renderResult(result) {
+      const winner = result.winnerSessionId || "";
+      if (result.reason === "opponent_left") {
+        status.textContent = "Buddy left. You win.";
+      } else if (!winner) {
+        status.textContent = "Draw.";
+      } else {
+        status.textContent = winner === room?.sessionId ? "You win." : "Buddy wins.";
+      }
+    }
+  </script>
+</body>
+</html>

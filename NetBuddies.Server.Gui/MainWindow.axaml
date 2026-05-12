@@ -33,7 +33,7 @@
                 BorderBrush="#0A477A"
                 BorderThickness="0,0,0,1"
                 Padding="16">
-            <Grid ColumnDefinitions="Auto,*">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <Image Source="/Assets/netbuddies-64.png"
                        Width="54"
                        Height="54"
@@ -46,6 +46,20 @@
                     <TextBlock x:Name="HeaderStatusText"
                                Text="Ready to host"
                                Foreground="#E8F7FF"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center">
+                    <Ellipse x:Name="ServerStatusDot"
+                             Width="14"
+                             Height="14"
+                             Fill="#D64545"/>
+                    <TextBlock x:Name="ServerStatusDotText"
+                               Text="Offline"
+                               Foreground="#E8F7FF"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -76,7 +90,7 @@
                                                Increment="1"
                                                MinWidth="150"/>
                             </StackPanel>
-                            <StackPanel Grid.Column="2">
+                            <StackPanel Grid.Column="2" IsVisible="False">
                                 <TextBlock Text="PUBLIC TLS PORT" Classes="label"/>
                                 <NumericUpDown x:Name="StunnelPortBox"
                                                Value="5051"
@@ -92,14 +106,13 @@
                                  PlaceholderText="Optional"/>
                         <TextBlock Text="TLS MODE" Classes="label"/>
                         <ComboBox x:Name="TlsModeBox"
-                                  SelectedIndex="2"
+                                  SelectedIndex="1"
                                   HorizontalAlignment="Stretch"
                                   SelectionChanged="TlsMode_Changed">
                             <ComboBoxItem Content="No TLS - private LAN or tunnel"/>
-                            <ComboBoxItem Content=".NET TLS - clients connect directly with Use TLS"/>
-                            <ComboBoxItem Content="Easy TLS with stunnel - recommended for internet hosting"/>
+                            <ComboBoxItem Content="Built-in Net Buddies TLS - recommended"/>
                         </ComboBox>
-                        <TextBlock Text="Recommended: Easy TLS with stunnel. Clients connect to the public TLS port with Use TLS enabled."
+                        <TextBlock Text="Recommended: Built-in Net Buddies TLS. No stunnel or external TLS wrapper is needed. Clients connect to the server port with Use TLS enabled."
                                    Foreground="#B9D0E4"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
@@ -126,13 +139,15 @@
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                             <StackPanel>
-                                <TextBlock Text="STUNNEL PEM CERTIFICATE" Classes="label"/>
+                                <TextBlock Text="SERVER CERTIFICATE FINGERPRINT" Classes="label"/>
                                 <TextBox x:Name="StunnelPemPathBox"
-                                         PlaceholderText="Generated PEM for stunnel"/>
+                                         IsReadOnly="True"
+                                         PlaceholderText="Generated SHA-256 fingerprint"/>
                             </StackPanel>
                             <Button Grid.Column="1"
                                     Content="Browse PEM"
                                     Click="BrowsePem_Click"
+                                    IsVisible="False"
                                     VerticalAlignment="Bottom"
                                     MinWidth="110"/>
                             <Button Grid.Column="2"
@@ -152,24 +167,27 @@
                             <Button Grid.Column="2"
                                     Content="Save stunnel config"
                                     Click="SaveStunnelConfig_Click"
+                                    IsVisible="False"
                                     MinWidth="150"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-                            <Button Content="Quick TLS Setup"
+                            <Button Content="Quick Built-in TLS Setup"
                                     Classes="primary"
                                     Click="QuickTlsSetup_Click"
                                     MinHeight="38"/>
                             <Button Grid.Column="1"
                                     Content="Check stunnel"
                                     Click="CheckStunnel_Click"
+                                    IsVisible="False"
                                     MinWidth="120"/>
                             <Button Grid.Column="2"
                                     Content="Copy install command"
                                     Click="CopyInstallCommand_Click"
+                                    IsVisible="False"
                                     MinWidth="165"/>
                         </Grid>
                         <TextBlock x:Name="TlsSetupStatusText"
-                                   Text="Quick TLS Setup generates certs, saves a stunnel config, and prepares secure hosting."
+                                   Text="Quick Built-in TLS Setup generates a certificate and prepares secure hosting without installing stunnel."
                                    Foreground="#B9D0E4"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
@@ -278,7 +296,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Classes="panel">
+                <Border Classes="panel" IsVisible="False">
                     <StackPanel Spacing="8">
                         <TextBlock Text="stunnel Config Preview"
                                    Foreground="#E8F4FF"

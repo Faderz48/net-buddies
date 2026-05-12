@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using NetBuddies.Core;
@@ -29,8 +31,8 @@ public partial class MainWindow : Window
         _server.StatusChanged += message => Dispatcher.UIThread.Post(() => AddLog(message));
         Closed += async (_, _) => await StopEverythingAsync();
         UpdateStunnelPreview();
+        SetServerStatus(false);
         AddLog("Net Buddies Server GUI ready.");
-        CheckStunnelAvailability(logSuccess: false);
         RefreshRealtimeGamesList(logSuccess: false);
     }
 
@@ -46,7 +48,6 @@ public partial class MainWindow : Window
         {
             var mode = CurrentTlsMode;
             var serverPort = ReadPort(PortBox, 5050);
-            var publicTlsPort = ReadPort(StunnelPortBox, 5051);
             var options = new BuddyServerOptions
             {
                 Certificate = mode == ServerTlsMode.DotNetTls ? LoadPfxCertificate() : null,
@@ -55,11 +56,6 @@ public partial class MainWindow : Window
 
             await _server.StartAsync(serverPort, options);
 
-            if (mode == ServerTlsMode.Stunnel)
-            {
-                StartStunnel(serverPort, publicTlsPort);
-            }
-
             if (RealtimeEnabledBox.IsChecked == true)
             {
                 StartRealtimeGameServer();
@@ -67,14 +63,13 @@ public partial class MainWindow : Window
 
             HeaderStatusText.Text = mode switch
             {
-                ServerTlsMode.DotNetTls => $"Secure server running on port {serverPort}",
-                ServerTlsMode.Stunnel => $"Server running on {serverPort}, stunnel on {publicTlsPort}",
+                ServerTlsMode.DotNetTls => $"Built-in TLS server running on port {serverPort}",
                 _ => $"Server running on port {serverPort}"
             };
+            SetServerStatus(true);
             ConnectionHintText.Text = mode switch
             {
-                ServerTlsMode.DotNetTls => $"Clients should connect to your server address on port {serverPort} with Use TLS enabled.",
-                ServerTlsMode.Stunnel => $"Clients should connect to your server address on port {publicTlsPort} with Use TLS enabled. stunnel forwards to local port {serverPort}.",
+                ServerTlsMode.DotNetTls => $"Clients should connect to your server address on port {serverPort} with Use TLS enabled and the shown SHA-256 fingerprint pinned.",
                 _ => $"Clients should connect to your server address on port {serverPort} without TLS, unless you are using a private tunnel."
             };
             if (RealtimeEnabledBox.IsChecked == true)
@@ -157,11 +152,13 @@ public partial class MainWindow : Window
                 password,
                 string.IsNullOrWhiteSpace(CertificateHostBox.Text) ? "netbuddies.local" : CertificateHostBox.Text.Trim());
             PfxPathBox.Text = generated.PfxPath;
-            StunnelPemPathBox.Text = generated.StunnelPemPath;
+            StunnelPemPathBox.Text = generated.Sha256Fingerprint;
             _lastStunnelConfigPath = generated.SuggestedStunnelConfigPath;
             UpdateStunnelPreview();
             AddLog($"Generated PFX certificate: {generated.PfxPath}");
-            AddLog($"Generated stunnel PEM: {generated.StunnelPemPath}");
+            AddLog($"Generated PEM copy: {generated.StunnelPemPath}");
+            AddLog($"TLS SHA-256 fingerprint: {generated.Sha256Fingerprint}");
+            TlsSetupStatusText.Text = $"Certificates generated. Share this SHA-256 fingerprint with clients: {generated.Sha256Fingerprint}";
         }
         catch (Exception ex)
         {
@@ -191,20 +188,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            TlsModeBox.SelectedIndex = 2;
-            if (!CheckStunnelAvailability(logSuccess: true))
-            {
-                TlsSetupStatusText.Text = $"Install stunnel first. {StunnelInstallHint}";
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(StunnelPemPathBox.Text) || !File.Exists(StunnelPemPathBox.Text.Trim()))
+            TlsModeBox.SelectedIndex = 1;
+            if (string.IsNullOrWhiteSpace(PfxPathBox.Text) || !File.Exists(PfxPathBox.Text.Trim()))
             {
                 GenerateCertificates_Click(sender, e);
             }
 
-            SaveStunnelConfig_Click(sender, e);
-            TlsSetupStatusText.Text = $"TLS ready. Start Server, then clients connect to port {ReadPort(StunnelPortBox, 5051)} with Use TLS enabled.";
+            TlsSetupStatusText.Text = $"Built-in TLS ready. Start Server, then clients connect to port {ReadPort(PortBox, 5050)} with Use TLS enabled and the SHA-256 fingerprint pinned.";
             ConnectionHintText.Text = TlsSetupStatusText.Text;
         }
         catch (Exception ex)
@@ -216,16 +206,17 @@ public partial class MainWindow : Window
 
     private void CheckStunnel_Click(object? sender, RoutedEventArgs e)
     {
-        CheckStunnelAvailability(logSuccess: true);
+        TlsSetupStatusText.Text = "stunnel is no longer needed. Net Buddies uses built-in .NET TLS.";
+        AddLog(TlsSetupStatusText.Text);
     }
 
     private async void CopyInstallCommand_Click(object? sender, RoutedEventArgs e)
     {
         if (Clipboard is not null)
         {
-            await Clipboard.SetTextAsync(StunnelInstallClipboardText);
-            AddLog("Copied stunnel install instructions.");
-            TlsSetupStatusText.Text = $"Copied: {StunnelInstallClipboardText}";
+            await Clipboard.SetTextAsync("Net Buddies now uses built-in .NET TLS. Generate a certificate, start the server, and share the SHA-256 fingerprint.");
+            AddLog("Copied built-in TLS instructions.");
+            TlsSetupStatusText.Text = "Copied built-in TLS instructions.";
         }
     }
 
@@ -361,6 +352,7 @@ public partial class MainWindow : Window
             FileName = stunnelExecutable,
             ArgumentList = { configPath },
             UseShellExecute = false,
+            CreateNoWindow = true,
             RedirectStandardError = true,
             RedirectStandardOutput = true
         });
@@ -426,6 +418,7 @@ public partial class MainWindow : Window
             FileName = node,
             WorkingDirectory = realtimeDirectory,
             UseShellExecute = false,
+            CreateNoWindow = true,
             RedirectStandardError = true,
             RedirectStandardOutput = true
         };
@@ -512,7 +505,16 @@ public partial class MainWindow : Window
 
         await _server.StopAsync();
         HeaderStatusText.Text = "Ready to host";
+        SetServerStatus(false);
         ConnectionHintText.Text = "";
+    }
+
+    private void SetServerStatus(bool isOnline)
+    {
+        ServerStatusDot.Fill = new SolidColorBrush(isOnline
+            ? Color.Parse("#39C95A")
+            : Color.Parse("#D64545"));
+        ServerStatusDotText.Text = isOnline ? "Online" : "Offline";
     }
 
     private X509Certificate2 LoadPfxCertificate()
@@ -619,6 +621,7 @@ public partial class MainWindow : Window
                     FileName = command,
                     ArgumentList = { candidate },
                     UseShellExecute = false,
+                    CreateNoWindow = true,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 });
@@ -671,6 +674,7 @@ public partial class MainWindow : Window
                 FileName = fileName,
                 WorkingDirectory = workingDirectory,
                 UseShellExecute = false,
+                CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             },
@@ -858,10 +862,11 @@ public partial class MainWindow : Window
               "id": "MyRealtimeGame",
               "name": "My Real-Time Game",
               "description": "Shows in the server GUI and client game list.",
-              "runtime": "realtime",
-              "room": "my_realtime_game",
-              "clientKind": "generic-state",
-              "serverPortOffset": 0,
+              "runtime": "web-game",
+              "room": "netbuddies/webgame",
+              "clientKind": "web-game",
+              "serverPortOffset": 1,
+              "clientEntry": "client/index.html",
               "icon": "icon.png"
             }
             """);
@@ -906,14 +911,29 @@ public partial class MainWindow : Window
         }
 
         if (File.Exists(targetPath)
-            && new FileInfo(sourcePath).Length == new FileInfo(targetPath).Length
-            && File.GetLastWriteTimeUtc(sourcePath) <= File.GetLastWriteTimeUtc(targetPath))
+            && FilesHaveSameContent(sourcePath, targetPath))
         {
             return;
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
         File.Copy(sourcePath, targetPath, overwrite: true);
+    }
+
+    private static bool FilesHaveSameContent(string leftPath, string rightPath)
+    {
+        var leftInfo = new FileInfo(leftPath);
+        var rightInfo = new FileInfo(rightPath);
+        if (leftInfo.Length != rightInfo.Length)
+        {
+            return false;
+        }
+
+        using var left = File.OpenRead(leftPath);
+        using var right = File.OpenRead(rightPath);
+        var leftHash = SHA256.HashData(left);
+        var rightHash = SHA256.HashData(right);
+        return leftHash.SequenceEqual(rightHash);
     }
 
     private sealed record RealtimeGameInfo(

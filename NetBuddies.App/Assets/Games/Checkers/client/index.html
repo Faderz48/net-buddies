@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leapfrog Checkers</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", sans-serif; background: #e9f5ff; color: #12243a; }
+    header { background: #0d63aa; color: white; padding: 14px 18px; }
+    h1 { margin: 0; font-size: 25px; }
+    #status { margin-top: 4px; opacity: .95; }
+    main { padding: 16px; display: grid; place-items: center; }
+    #board { display: grid; grid-template-columns: repeat(8, 64px); border: 3px solid #083a63; background: #083a63; }
+    button.cell { width: 64px; height: 64px; border: 1px solid #083a63; padding: 3px; background: url("assets/tile-light.png") center/cover; }
+    button.cell.dark { background-image: url("assets/tile-dark.png"); }
+    button.cell.selected { background-image: url("assets/tile-selected.png"); }
+    button.cell img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <header><h1>Leapfrog Checkers</h1><div id="status">Connecting...</div></header>
+  <main><section id="board"></section></main>
+  <script src="assets/colyseus.js"></script>
+  <script src="assets/netbuddies-colyseus-compat.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const colyseusUrl = params.get("colyseus");
+    const roomName = params.get("room") || "leapfrog_checkers";
+    const inviteRoomId = params.get("roomId") || "default";
+    const isHost = params.get("side") === "host";
+    const mine = isHost ? 1 : 2;
+    const buddy = isHost ? 2 : 1;
+    const board = Array(64).fill(0);
+    let selected = -1;
+    let turn = 1;
+    let ended = false;
+    const status = document.querySelector("#status");
+    const boardElement = document.querySelector("#board");
+    let room = null;
+
+    setup();
+    for (let i = 0; i < 64; i++) {
+      const button = document.createElement("button");
+      button.className = "cell";
+      button.addEventListener("click", () => clickCell(i, true));
+      boardElement.appendChild(button);
+    }
+
+    connect();
+
+    async function connect() {
+      try {
+        const client = new Colyseus.Client(colyseusUrl);
+        room = await client.joinOrCreate(roomName, { roomId: inviteRoomId, roomKey: inviteRoomId, name: params.get("playerName") || "Buddy" });
+        room.onMessage("hello", () => render("Connected."));
+        room.onMessage("move", message => {
+          const body = message.move || message;
+          if (body.type === "move") applyMove(body.from, body.to);
+        });
+        room.onMessage("gameOver", message => {
+          ended = true;
+          renderResult(message);
+          setTimeout(() => window.close(), message.reason === "opponent_left" ? 1600 : 5000);
+        });
+        room.onLeave(() => {
+          if (!ended) render("Disconnected from game server.");
+        });
+      } catch (error) {
+        render(`Could not join Colyseus room ${roomName}. Check ${colyseusUrl}.`);
+      }
+    }
+
+    function setup() {
+      for (let y = 0; y < 3; y++) for (let x = 0; x < 8; x++) if ((x + y) % 2) board[y * 8 + x] = 2;
+      for (let y = 5; y < 8; y++) for (let x = 0; x < 8; x++) if ((x + y) % 2) board[y * 8 + x] = 1;
+    }
+
+    function clickCell(index, local) {
+      if (ended || local && turn !== mine) return;
+      if (selected < 0) {
+        if (board[index] === mine || board[index] === mine + 2) selected = index;
+        render();
+        return;
+      }
+      const move = validMove(selected, index);
+      if (!move) { selected = -1; render(); return; }
+      applyMove(selected, index);
+      if (local && room) room.send("move", { type: "move", from: selected, to: index });
+      selected = -1;
+      render();
+    }
+
+    function validMove(from, to) {
+      if (to < 0 || to >= 64 || board[to]) return false;
+      const piece = board[from];
+      const fx = from % 8, fy = Math.floor(from / 8), tx = to % 8, ty = Math.floor(to / 8);
+      const dx = tx - fx, dy = ty - fy;
+      const king = piece > 2;
+      const forward = piece === 1 ? -1 : 1;
+      if (Math.abs(dx) === 1 && (dy === forward || king && Math.abs(dy) === 1)) return true;
+      if (Math.abs(dx) === 2 && (dy === forward * 2 || king && Math.abs(dy) === 2)) {
+        const mid = ((fy + ty) / 2) * 8 + ((fx + tx) / 2);
+        return board[mid] && owner(board[mid]) !== owner(piece);
+      }
+      return false;
+    }
+
+    function applyMove(from, to) {
+      const piece = board[from];
+      const fx = from % 8, fy = Math.floor(from / 8), tx = to % 8, ty = Math.floor(to / 8);
+      board[from] = 0;
+      if (Math.abs(tx - fx) === 2) board[((fy + ty) / 2) * 8 + ((fx + tx) / 2)] = 0;
+      board[to] = promote(piece, ty);
+      turn = turn === 1 ? 2 : 1;
+      if (checkGameOver()) return;
+      render();
+    }
+
+    function promote(piece, y) {
+      if (piece === 1 && y === 0) return 3;
+      if (piece === 2 && y === 7) return 4;
+      return piece;
+    }
+
+    function owner(piece) { return piece === 1 || piece === 3 ? 1 : 2; }
+    function asset(piece) {
+      if (piece === 1) return "assets/checker-red.png";
+      if (piece === 2) return "assets/checker-black.png";
+      if (piece === 3) return "assets/checker-red-king.png";
+      if (piece === 4) return "assets/checker-black-king.png";
+      return "";
+    }
+
+    function render(message) {
+      [...boardElement.children].forEach((button, index) => {
+        const x = index % 8, y = Math.floor(index / 8);
+        button.className = `cell ${(x + y) % 2 ? "dark" : ""} ${selected === index ? "selected" : ""}`;
+        button.innerHTML = board[index] ? `<img src="${asset(board[index])}" alt="">` : "";
+      });
+      status.textContent = message || `You are ${mine === 1 ? "red" : "black"}. ${turn === mine ? "Your turn." : "Waiting for buddy."}`;
+    }
+
+    function checkGameOver() {
+      const red = board.some(piece => piece === 1 || piece === 3);
+      const black = board.some(piece => piece === 2 || piece === 4);
+      if (red && black) return false;
+      ended = true;
+      const winner = red ? 1 : black ? 2 : 0;
+      if (room) room.send("gameOver", { reason: "no_pieces", winnerSide: winner });
+      renderResult({ reason: "no_pieces", winnerSide: winner });
+      return true;
+    }
+
+    function renderResult(message) {
+      if (message.reason === "opponent_left") status.textContent = "Buddy left. You win.";
+      else if (!message.winnerSide) status.textContent = "Draw.";
+      else status.textContent = message.winnerSide === mine ? "You win." : "Buddy wins.";
+    }
+    render();
+  </script>
+</body>
+</html>

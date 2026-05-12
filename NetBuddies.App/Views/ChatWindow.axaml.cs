@@ -19,6 +19,8 @@ public partial class ChatWindow : Window
     {
         InitializeComponent();
         MessageInput.AddHandler(InputElement.KeyDownEvent, MessageInput_KeyDown, RoutingStrategies.Tunnel);
+        GamesMenu.PointerEntered += (_, _) => PopulateGamesMenu();
+        Opened += (_, _) => PopulateGamesMenu();
         DataContextChanged += (_, _) => HookViewModel();
         Activated += (_, _) => ChatAttentionService.StopFlashing(this);
         Closed += (_, _) =>
@@ -29,6 +31,43 @@ public partial class ChatWindow : Window
                 viewModel.Dispose();
             }
         };
+    }
+
+    private void PopulateGamesMenu()
+    {
+        GamesMenu.Items.Clear();
+        foreach (var game in GameCatalogService.LoadGames().Where(game => game.IsPlayable))
+        {
+            var item = new MenuItem
+            {
+                Header = game.Name,
+                Tag = game
+            };
+            item.Click += Game_Click;
+            GamesMenu.Items.Add(item);
+        }
+
+        GamesMenu.Items.Add(new Separator());
+        var openFolder = new MenuItem { Header = "Open Games Folder" };
+        openFolder.Click += (_, _) =>
+        {
+            Directory.CreateDirectory(GameAssetService.UserGamesFolder);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = GameAssetService.UserGamesFolder,
+                UseShellExecute = true
+            });
+        };
+        GamesMenu.Items.Add(openFolder);
+    }
+
+    private void Game_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ConversationViewModel viewModel
+            && sender is MenuItem { Tag: GameCatalogItem game })
+        {
+            viewModel.RequestCatalogGame(game);
+        }
     }
 
     private void HookViewModel()

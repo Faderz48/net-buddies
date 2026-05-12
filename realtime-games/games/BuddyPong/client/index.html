@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buddy Pong</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #071623;
+      color: #f7fbff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(82, 176, 255, 0.22), transparent 28rem),
+        linear-gradient(180deg, #0b4678 0%, #071623 64%);
+      overflow: hidden;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 14px;
+      min-height: 58px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .status {
+      margin-top: 5px;
+      color: #cae7ff;
+      font-size: 15px;
+    }
+
+    .score {
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 32px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .side {
+      justify-self: end;
+      text-align: right;
+      color: #cae7ff;
+      font-weight: 700;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      min-height: 360px;
+      display: block;
+      border: 1px solid rgba(188, 228, 255, 0.32);
+      background: #082138;
+      box-shadow: inset 0 0 0 1px rgba(8, 88, 151, 0.85);
+    }
+
+    .hint {
+      color: #cae7ff;
+      font-size: 14px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Buddy Pong</h1>
+        <div class="status" id="status">Connecting...</div>
+      </div>
+      <div class="score"><span id="leftScore">0</span><span>:</span><span id="rightScore">0</span></div>
+      <div class="side" id="side">Joining</div>
+    </header>
+    <canvas id="board" width="960" height="540"></canvas>
+    <div class="hint">Move with W/S, Up/Down, mouse, or touch.</div>
+  </div>
+
+  <script src="assets/colyseus.js"></script>
+  <script src="assets/netbuddies-colyseus-compat.js"></script>
+  <script>
+    const query = new URLSearchParams(location.search);
+    const colyseusUrl = query.get("colyseus") || "ws://127.0.0.1:2567";
+    const roomName = query.get("room") || "buddy_pong";
+    const roomId = query.get("roomId") || "default";
+    const playerName = query.get("playerName") || "Buddy";
+    const statusEl = document.getElementById("status");
+    const sideEl = document.getElementById("side");
+    const leftScoreEl = document.getElementById("leftScore");
+    const rightScoreEl = document.getElementById("rightScore");
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
+    const pressed = new Set();
+    let room;
+    let mySide = "";
+    let ended = false;
+    let pointerMove = null;
+    let state = {
+      phase: "waiting",
+      ball: { x: 0.5, y: 0.5 },
+      paddles: {},
+      score: {}
+    };
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      canvas.width = Math.max(1, Math.floor(rect.width * scale));
+      canvas.height = Math.max(1, Math.floor(rect.height * scale));
+      draw();
+    }
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("keydown", (event) => {
+      pressed.add(event.key.toLowerCase());
+      sendInput();
+    });
+    window.addEventListener("keyup", (event) => {
+      pressed.delete(event.key.toLowerCase());
+      sendInput();
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+      const rect = canvas.getBoundingClientRect();
+      pointerMove = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+      sendInput();
+    });
+    canvas.addEventListener("pointerleave", () => {
+      pointerMove = null;
+      sendInput();
+    });
+
+    function computeMove() {
+      if (pointerMove !== null && mySide) {
+        const paddle = Object.values(state.paddles || {}).find((item) => item.side === mySide);
+        if (paddle) {
+          return Math.max(-1, Math.min(1, (pointerMove - paddle.y) * 7));
+        }
+      }
+
+      const up = pressed.has("w") || pressed.has("arrowup");
+      const down = pressed.has("s") || pressed.has("arrowdown");
+      return up === down ? 0 : up ? -1 : 1;
+    }
+
+    function sendInput() {
+      if (room) {
+        room.send("input", { move: computeMove() });
+      }
+    }
+
+    function updateScores() {
+      let left = 0;
+      let right = 0;
+      for (const [sessionId, paddle] of Object.entries(state.paddles || {})) {
+        if (paddle.side === "left") {
+          left = state.score?.[sessionId] || 0;
+        } else if (paddle.side === "right") {
+          right = state.score?.[sessionId] || 0;
+        }
+      }
+
+      leftScoreEl.textContent = left;
+      rightScoreEl.textContent = right;
+    }
+
+    function draw() {
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
+      const gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, "#0f5f9b");
+      gradient.addColorStop(1, "#061928");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = "rgba(210, 237, 255, 0.36)";
+      ctx.lineWidth = Math.max(2, width * 0.003);
+      ctx.setLineDash([height * 0.035, height * 0.035]);
+      ctx.beginPath();
+      ctx.moveTo(width / 2, height * 0.08);
+      ctx.lineTo(width / 2, height * 0.92);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      for (const paddle of Object.values(state.paddles || {})) {
+        const x = paddle.side === "left" ? width * 0.045 : width * 0.935;
+        const y = paddle.y * height;
+        const paddleWidth = width * 0.018;
+        const paddleHeight = height * 0.22;
+        ctx.fillStyle = paddle.side === mySide ? "#a6ff71" : "#ffda5a";
+        roundRect(x, y - paddleHeight / 2, paddleWidth, paddleHeight, paddleWidth / 2);
+        ctx.fill();
+      }
+
+      const ball = state.ball || { x: 0.5, y: 0.5 };
+      const radius = Math.max(9, Math.min(width, height) * 0.026);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(ball.x * width, ball.y * height, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#9ad7ff";
+      ctx.lineWidth = Math.max(2, radius * 0.2);
+      ctx.stroke();
+    }
+
+    function roundRect(x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + width, y, x + width, y + height, radius);
+      ctx.arcTo(x + width, y + height, x, y + height, radius);
+      ctx.arcTo(x, y + height, x, y, radius);
+      ctx.arcTo(x, y, x + width, y, radius);
+      ctx.closePath();
+    }
+
+    async function connect() {
+      try {
+        const client = new Colyseus.Client(colyseusUrl);
+        room = await client.joinOrCreate(roomName, { roomId, roomKey: roomId, name: playerName });
+        statusEl.textContent = "Waiting for buddy...";
+        room.onMessage("hello", (message) => {
+          mySide = message.side || "";
+          sideEl.textContent = mySide ? `You are ${mySide}` : "Joined";
+        });
+        room.onMessage("start", () => {
+          statusEl.textContent = "Match running";
+        });
+        room.onMessage("state", (message) => {
+          state = message;
+          if (state.phase === "ended") {
+            renderResult(state);
+          } else {
+            statusEl.textContent = state.phase === "playing" ? "Match running" : "Waiting for buddy...";
+          }
+          updateScores();
+          draw();
+        });
+        room.onMessage("gameOver", (message) => {
+          ended = true;
+          renderResult(message);
+          setTimeout(() => window.close(), message.reason === "opponent_left" ? 1600 : 5000);
+        });
+        room.onLeave(() => {
+          if (!ended) statusEl.textContent = "Disconnected from game server";
+          room = null;
+        });
+      } catch (error) {
+        statusEl.textContent = `Could not connect: ${error.message || error}`;
+      }
+    }
+
+    resize();
+    connect();
+
+    function renderResult(message) {
+      if (message.reason === "opponent_left") statusEl.textContent = "Buddy left. You win.";
+      else if (!message.winnerSessionId) statusEl.textContent = "Game ended.";
+      else statusEl.textContent = message.winnerSessionId === room?.sessionId ? "You win." : "Buddy wins.";
+    }
+  </script>
+</body>
+</html>

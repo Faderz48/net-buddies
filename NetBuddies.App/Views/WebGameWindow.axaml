@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NetBuddies.App.ViewModels"
+        x:Class="NetBuddies.App.Views.WebGameWindow"
+        x:DataType="vm:WebGameViewModel"
+        Title="{Binding Title}"
+        Width="900"
+        Height="680"
+        MinWidth="640"
+        MinHeight="480">
+    <Grid RowDefinitions="Auto,*"
+          Background="{DynamicResource NbPageBrush}">
+        <Border Background="{DynamicResource NbHeaderBrush}"
+                BorderBrush="{DynamicResource NbHeaderBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="12">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel>
+                    <TextBlock Text="{Binding GameName}"
+                               Foreground="White"
+                               FontSize="24"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="{Binding StatusText}"
+                               Foreground="#E8F7FF"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="End Game"
+                        Command="{Binding EndGameCommand}"
+                        VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+        <NativeWebView x:Name="GameWebView"
+                       Grid.Row="1"/>
+    </Grid>
+</Window>

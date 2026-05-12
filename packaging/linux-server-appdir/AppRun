@@ -7,32 +7,4 @@ if [ -x "$GUI" ] && [ "$NETBUDDIES_SERVER_CLI" != "1" ]; then
     exec "$GUI" "$@"
 fi
 
-if [ -t 0 ] || [ "$NETBUDDIES_SERVER_NO_TERMINAL" = "1" ]; then
-    exec "$SERVER" "$@"
-fi
-
-if command -v x-terminal-emulator >/dev/null 2>&1; then
-    exec x-terminal-emulator -e "$SERVER" "$@"
-fi
-
-if command -v gnome-terminal >/dev/null 2>&1; then
-    exec gnome-terminal -- "$SERVER" "$@"
-fi
-
-if command -v konsole >/dev/null 2>&1; then
-    exec konsole --noclose -e "$SERVER" "$@"
-fi
-
-if command -v xfce4-terminal >/dev/null 2>&1; then
-    exec xfce4-terminal --hold -e "$SERVER $*"
-fi
-
-if command -v mate-terminal >/dev/null 2>&1; then
-    exec mate-terminal --disable-factory -e "$SERVER $*"
-fi
-
-if command -v xterm >/dev/null 2>&1; then
-    exec xterm -hold -e "$SERVER" "$@"
-fi
-
 exec "$SERVER" "$@"

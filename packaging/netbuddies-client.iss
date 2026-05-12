@@ -1,5 +1,5 @@
 #define AppName "Net Buddies"
-#define AppVersion "1.6"
+#define AppVersion "1.7"
 #define Publisher "Net Buddies"
 #define SourceDir "..\publish\win-x64-client-installer-files"
 #define OutputDir "..\publish"

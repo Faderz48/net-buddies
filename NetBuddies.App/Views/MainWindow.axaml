@@ -146,6 +146,13 @@
                                  PlaceholderText="Invite code"/>
                     </Grid>
 
+                    <TextBlock Text="SERVER CERTIFICATE FINGERPRINT" Classes="label"/>
+                    <TextBox Text="{Binding ServerCertificateFingerprint}"
+                             PlaceholderText="SHA-256 fingerprint for self-signed servers"/>
+                    <TextBlock Text="Best: paste the server's SHA-256 fingerprint here and leave Trust self-signed off."
+                               Foreground="{DynamicResource NbSubtleTextBrush}"
+                               TextWrapping="Wrap"/>
+
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button Content="Join Chat"
                                 Classes="primary"

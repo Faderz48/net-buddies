@@ -13,6 +13,7 @@ public sealed record ProfileSettings
     public int LastPort { get; init; } = 5050;
     public bool LastUseSecureTls { get; init; }
     public bool LastTrustSelfSignedCertificate { get; init; } = true;
+    public string LastServerCertificateFingerprint { get; init; } = "";
     public string LastServerInviteCode { get; init; } = "";
 }
 
