@@ -30,7 +30,39 @@
                         VerticalAlignment="Center"/>
             </Grid>
         </Border>
-        <NativeWebView x:Name="GameWebView"
-                       Grid.Row="1"/>
+        <Grid x:Name="GameHost"
+              Grid.Row="1">
+            <Border x:Name="FallbackPanel"
+                    IsVisible="False"
+                    Margin="24"
+                    Padding="24"
+                    Background="{DynamicResource NbPanelBrush}"
+                    BorderBrush="{DynamicResource NbPanelBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    MaxWidth="520">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="This game could not be opened inside Net Buddies on this machine."
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource NbTextBrush}"/>
+                    <TextBlock x:Name="FallbackReasonText"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource NbMutedTextBrush}"/>
+                    <TextBlock Text="The game can still run in your browser using the same room invite."
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource NbMutedTextBrush}"/>
+                    <Button Content="Open Game"
+                            Command="{Binding OpenExternallyCommand}"
+                            HorizontalAlignment="Left"/>
+                    <TextBlock Text="{Binding LaunchStatusText}"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource NbWarningBrush}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

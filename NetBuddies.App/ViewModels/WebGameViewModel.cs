@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NetBuddies.App.Services;
+using System.Diagnostics;
 
 namespace NetBuddies.App.ViewModels;
 
@@ -35,15 +36,37 @@ public sealed partial class WebGameViewModel : ViewModelBase
     public bool IsHost { get; }
     public string Title => $"{GameName} with {BuddyName}";
     public Uri Source { get; }
+    public string SourceText => Source.ToString();
     public event Action<WebGameViewModel>? CloseRequested;
 
     [ObservableProperty]
     private string _statusText = "";
 
+    [ObservableProperty]
+    private string _launchStatusText = "";
+
     [RelayCommand]
     private void EndGame()
     {
         CloseRequested?.Invoke(this);
+    }
+
+    [RelayCommand]
+    private void OpenExternally()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = SourceText,
+                UseShellExecute = true
+            });
+            LaunchStatusText = "Game opened in your browser.";
+        }
+        catch (Exception ex)
+        {
+            LaunchStatusText = $"Could not open game externally: {ex.Message}";
+        }
     }
 
     private Uri BuildSource(GameCatalogItem game)
@@ -54,8 +77,9 @@ public sealed partial class WebGameViewModel : ViewModelBase
             return new Uri("about:blank");
         }
 
+        var source = BuildHostedSource(game) ?? new Uri(Path.GetFullPath(game.ClientEntryPath));
         var relayUrl = BuildRelayUrl();
-        var builder = new UriBuilder(new Uri(game.ClientEntryPath))
+        var builder = new UriBuilder(source)
         {
             Query = string.Join('&',
                 $"gameId={Uri.EscapeDataString(CatalogGameId)}",
@@ -70,9 +94,46 @@ public sealed partial class WebGameViewModel : ViewModelBase
         return builder.Uri;
     }
 
+    private Uri? BuildHostedSource(GameCatalogItem game)
+    {
+        if (!Uri.TryCreate(ServerUrl, UriKind.Absolute, out var serverUri))
+        {
+            return null;
+        }
+
+        var scheme = serverUri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase)
+            ? "https"
+            : "http";
+        var clientEntry = string.IsNullOrWhiteSpace(game.ClientEntry)
+            ? "client/index.html"
+            : game.ClientEntry.Replace('\\', '/').TrimStart('/');
+        var path = string.Join('/',
+            new[] { "games", CatalogGameId }
+                .Concat(clientEntry.Split('/', StringSplitOptions.RemoveEmptyEntries))
+                .Select(Uri.EscapeDataString));
+
+        return new UriBuilder(serverUri)
+        {
+            Scheme = scheme,
+            Path = path,
+            Query = ""
+        }.Uri;
+    }
+
     private string BuildRelayUrl()
     {
-        var server = ServerUrl.TrimEnd('/');
-        return $"{server}/netbuddies/webgame/{Uri.EscapeDataString(CatalogGameId)}/{Uri.EscapeDataString(GameId)}";
+        if (!Uri.TryCreate(ServerUrl, UriKind.Absolute, out var serverUri))
+        {
+            var server = ServerUrl.TrimEnd('/');
+            return $"{server}/netbuddies/webgame/{Uri.EscapeDataString(CatalogGameId)}/{Uri.EscapeDataString(GameId)}";
+        }
+
+        var builder = new UriBuilder(serverUri)
+        {
+            Port = serverUri.IsDefaultPort ? -1 : serverUri.Port + 1,
+            Path = $"netbuddies/webgame/{Uri.EscapeDataString(CatalogGameId)}/{Uri.EscapeDataString(GameId)}",
+            Query = ""
+        };
+        return builder.Uri.ToString();
     }
 }

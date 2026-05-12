@@ -58,7 +58,7 @@ public partial class MainWindow : Window
 
             if (RealtimeEnabledBox.IsChecked == true)
             {
-                StartRealtimeGameServer();
+                await StartRealtimeGameServerAsync();
             }
 
             HeaderStatusText.Text = mode switch
@@ -253,10 +253,7 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException($"npm was not found. {NodeInstallHint}");
             }
 
-            RealtimeStatusText.Text = $"Installing Colyseus dependencies in {realtimeDirectory}...";
-            AddLog($"Installing real-time game dependencies in {realtimeDirectory} with npm install...");
-            await RunProcessAsync(npm, ["install"], realtimeDirectory, "realtime npm");
-            RealtimeStatusText.Text = "Real-time game dependencies are installed.";
+            await InstallRealtimeDependenciesAsync(realtimeDirectory, npm);
             RefreshRealtimeGamesList(logSuccess: true);
         }
         catch (Exception ex)
@@ -381,7 +378,7 @@ public partial class MainWindow : Window
         AddLog($"Started {stunnelExecutable} using {configPath}");
     }
 
-    private void StartRealtimeGameServer()
+    private async Task StartRealtimeGameServerAsync()
     {
         if (_realtimeProcess is { HasExited: false })
         {
@@ -404,9 +401,16 @@ public partial class MainWindow : Window
             throw new InvalidOperationException($"Real-time game server script was not found: {serverScript}");
         }
 
-        if (!Directory.Exists(nodeModules))
+        if (RealtimeDependenciesNeedInstall(realtimeDirectory))
         {
-            throw new InvalidOperationException("Real-time game dependencies are not installed. Click Install/update in the Real-Time Game Server panel.");
+            var npm = FindExecutable("npm");
+            if (string.IsNullOrWhiteSpace(npm))
+            {
+                throw new InvalidOperationException($"Real-time game dependencies need installing, but npm was not found. {NodeInstallHint}");
+            }
+
+            AddLog("Real-time game dependencies are missing or out of date. Updating them now...");
+            await InstallRealtimeDependenciesAsync(realtimeDirectory, npm);
         }
 
         var port = ReadPort(RealtimePortBox, 2567);
@@ -456,6 +460,15 @@ public partial class MainWindow : Window
         var gamesSummary = games.Count == 1 ? "1 game" : $"{games.Count} games";
         RealtimeStatusText.Text = $"Real-time game server running on {bindAddress}:{port}. Buddy Pong uses {bindAddress}:{port + 1}. Detected {gamesSummary}.";
         AddLog($"Started real-time game server on {bindAddress}:{port}; Buddy Pong on {bindAddress}:{port + 1}; detected {gamesSummary}.");
+    }
+
+    private async Task InstallRealtimeDependenciesAsync(string realtimeDirectory, string npm)
+    {
+        RealtimeStatusText.Text = $"Installing Colyseus dependencies in {realtimeDirectory}...";
+        AddLog($"Installing real-time game dependencies in {realtimeDirectory} with npm install...");
+        await RunProcessAsync(npm, ["install"], realtimeDirectory, "realtime npm");
+        WriteRealtimeDependencyMarker(realtimeDirectory);
+        RealtimeStatusText.Text = "Real-time game dependencies are installed.";
     }
 
     private async Task StopEverythingAsync()
@@ -764,6 +777,9 @@ public partial class MainWindow : Window
         "NetBuddies",
         "RealtimeGames");
 
+    private static string RealtimeDependencyMarkerPath(string realtimeDirectory) =>
+        Path.Combine(realtimeDirectory, ".netbuddies-deps.sha256");
+
     private List<RealtimeGameInfo> RefreshRealtimeGamesList(bool logSuccess)
     {
         try
@@ -887,6 +903,77 @@ public partial class MainWindow : Window
         CopyIfChanged(Path.Combine(sourceDirectory, "server.js"), Path.Combine(targetDirectory, "server.js"));
         CopyDirectoryIfChanged(Path.Combine(sourceDirectory, "games"), Path.Combine(targetDirectory, "games"));
         return targetDirectory;
+    }
+
+    private static bool RealtimeDependenciesNeedInstall(string realtimeDirectory)
+    {
+        var nodeModules = Path.Combine(realtimeDirectory, "node_modules");
+        if (!Directory.Exists(nodeModules))
+        {
+            return true;
+        }
+
+        var expectedSignature = ComputeRealtimeDependencySignature(realtimeDirectory);
+        var markerPath = RealtimeDependencyMarkerPath(realtimeDirectory);
+        if (!File.Exists(markerPath)
+            || !string.Equals(File.ReadAllText(markerPath).Trim(), expectedSignature, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !InstalledColyseusVersionLooksCompatible(realtimeDirectory);
+    }
+
+    private static void WriteRealtimeDependencyMarker(string realtimeDirectory)
+    {
+        Directory.CreateDirectory(realtimeDirectory);
+        File.WriteAllText(RealtimeDependencyMarkerPath(realtimeDirectory), ComputeRealtimeDependencySignature(realtimeDirectory));
+    }
+
+    private static string ComputeRealtimeDependencySignature(string realtimeDirectory)
+    {
+        using var sha = SHA256.Create();
+        foreach (var fileName in new[] { "package.json", "package-lock.json" })
+        {
+            var path = Path.Combine(realtimeDirectory, fileName);
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            var nameBytes = System.Text.Encoding.UTF8.GetBytes(fileName);
+            sha.TransformBlock(nameBytes, 0, nameBytes.Length, null, 0);
+            using var file = File.OpenRead(path);
+            var buffer = new byte[81920];
+            int read;
+            while ((read = file.Read(buffer)) > 0)
+            {
+                sha.TransformBlock(buffer, 0, read, null, 0);
+            }
+        }
+
+        sha.TransformFinalBlock([], 0, 0);
+        return Convert.ToHexString(sha.Hash ?? []);
+    }
+
+    private static bool InstalledColyseusVersionLooksCompatible(string realtimeDirectory)
+    {
+        var packagePath = Path.Combine(realtimeDirectory, "node_modules", "colyseus", "package.json");
+        if (!File.Exists(packagePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(packagePath));
+            var version = ReadJsonString(document.RootElement, "version", "");
+            return version.StartsWith("0.16.", StringComparison.Ordinal);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static void CopyDirectoryIfChanged(string sourceDirectory, string targetDirectory)

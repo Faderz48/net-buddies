@@ -35,22 +35,33 @@ class NetBuddiesLobbyRoom extends Room {
 }
 
 const httpServer = http.createServer((request, response) => {
-  if (request.url === "/health") {
+  const requestUrl = new URL(request.url, `http://${request.headers.host || "127.0.0.1"}`);
+
+  if (requestUrl.pathname === "/health") {
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ ok: true, service: "netbuddies-realtime-games" }));
     return;
   }
 
-  if (request.url === "/games") {
+  if (requestUrl.pathname === "/games") {
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ games: detectedGames }));
     return;
   }
 
-  if (request.url === "/") {
+  if (requestUrl.pathname.startsWith("/games/")) {
+    serveGameAsset(requestUrl, response);
+    return;
+  }
+
+  if (requestUrl.pathname === "/") {
     response.writeHead(200, { "content-type": "text/plain" });
     response.end("Net Buddies real-time game server is running.\n");
+    return;
   }
+
+  response.writeHead(404, { "content-type": "text/plain" });
+  response.end("Not found.\n");
 });
 
 const gameServer = new Server({ server: httpServer });
@@ -136,6 +147,67 @@ function readGameManifest(folderPath, fallbackId) {
       clientKind: "",
       folder: folderPath
     };
+  }
+}
+
+function serveGameAsset(requestUrl, response) {
+  const parts = requestUrl.pathname.split("/").filter(Boolean);
+  const gameId = decodeURIComponent(parts[1] || "");
+  const game = detectedGames.find((item) => item.id.toLowerCase() === gameId.toLowerCase());
+  if (!game) {
+    response.writeHead(404, { "content-type": "text/plain" });
+    response.end("Game not found.\n");
+    return;
+  }
+
+  const relativeParts = parts.slice(2).map((part) => decodeURIComponent(part));
+  const relativePath = relativeParts.length === 0
+    ? game.clientEntry || "client/index.html"
+    : relativeParts.join(path.sep);
+  const root = path.resolve(game.folder);
+  const filePath = path.resolve(root, relativePath);
+  if (filePath !== root && !filePath.startsWith(root + path.sep)) {
+    response.writeHead(403, { "content-type": "text/plain" });
+    response.end("Forbidden.\n");
+    return;
+  }
+
+  fs.stat(filePath, (statError, stat) => {
+    if (statError || !stat.isFile()) {
+      response.writeHead(404, { "content-type": "text/plain" });
+      response.end("Game asset not found.\n");
+      return;
+    }
+
+    response.writeHead(200, {
+      "content-type": contentTypeFor(filePath),
+      "cache-control": "no-cache"
+    });
+    fs.createReadStream(filePath).pipe(response);
+  });
+}
+
+function contentTypeFor(filePath) {
+  switch (path.extname(filePath).toLowerCase()) {
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".js":
+      return "text/javascript; charset=utf-8";
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".json":
+      return "application/json; charset=utf-8";
+    case ".png":
+      return "image/png";
+    case ".gif":
+      return "image/gif";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".svg":
+      return "image/svg+xml";
+    default:
+      return "application/octet-stream";
   }
 }
 
