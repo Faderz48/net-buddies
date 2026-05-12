@@ -77,7 +77,7 @@ public sealed partial class WebGameViewModel : ViewModelBase
             return new Uri("about:blank");
         }
 
-        var source = BuildHostedSource(game) ?? new Uri(Path.GetFullPath(game.ClientEntryPath));
+        var source = new Uri(Path.GetFullPath(game.ClientEntryPath));
         var relayUrl = BuildRelayUrl();
         var builder = new UriBuilder(source)
         {
@@ -89,35 +89,11 @@ public sealed partial class WebGameViewModel : ViewModelBase
                 $"side={(IsHost ? "host" : "guest")}",
                 $"colyseus={Uri.EscapeDataString(ServerUrl)}",
                 $"room={Uri.EscapeDataString(RoomName)}",
-                $"relay={Uri.EscapeDataString(relayUrl)}")
+                $"relay={Uri.EscapeDataString(relayUrl)}",
+                "embedded=1",
+                "uiVersion=2")
         };
         return builder.Uri;
-    }
-
-    private Uri? BuildHostedSource(GameCatalogItem game)
-    {
-        if (!Uri.TryCreate(ServerUrl, UriKind.Absolute, out var serverUri))
-        {
-            return null;
-        }
-
-        var scheme = serverUri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase)
-            ? "https"
-            : "http";
-        var clientEntry = string.IsNullOrWhiteSpace(game.ClientEntry)
-            ? "client/index.html"
-            : game.ClientEntry.Replace('\\', '/').TrimStart('/');
-        var path = string.Join('/',
-            new[] { "games", CatalogGameId }
-                .Concat(clientEntry.Split('/', StringSplitOptions.RemoveEmptyEntries))
-                .Select(Uri.EscapeDataString));
-
-        return new UriBuilder(serverUri)
-        {
-            Scheme = scheme,
-            Path = path,
-            Query = ""
-        }.Uri;
     }
 
     private string BuildRelayUrl()

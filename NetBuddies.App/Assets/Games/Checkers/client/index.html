@@ -6,16 +6,29 @@
   <title>Leapfrog Checkers</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: "Segoe UI", sans-serif; background: #e9f5ff; color: #12243a; }
+    html, body { width: 100%; height: 100%; }
+    body { margin: 0; font-family: "Segoe UI", sans-serif; background: #e9f5ff; color: #12243a; overflow: hidden; }
     header { background: #0d63aa; color: white; padding: 14px 18px; }
     h1 { margin: 0; font-size: 25px; }
     #status { margin-top: 4px; opacity: .95; }
-    main { padding: 16px; display: grid; place-items: center; }
-    #board { display: grid; grid-template-columns: repeat(8, 64px); border: 3px solid #083a63; background: #083a63; }
-    button.cell { width: 64px; height: 64px; border: 1px solid #083a63; padding: 3px; background: url("assets/tile-light.png") center/cover; }
+    main { height: calc(100vh - 82px); padding: 16px; display: grid; place-items: center; overflow: hidden; }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: min(calc(100vw - 32px), calc(100vh - 114px));
+      aspect-ratio: 1;
+      border: 3px solid #083a63;
+      background: #083a63;
+    }
+    button.cell { width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid #083a63; padding: clamp(2px, .6vmin, 6px); background: url("assets/tile-light.png") center/cover; }
     button.cell.dark { background-image: url("assets/tile-dark.png"); }
     button.cell.selected { background-image: url("assets/tile-selected.png"); }
-    button.cell img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    button.cell img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    body.embedded header { padding: 8px 14px; min-height: 42px; }
+    body.embedded h1 { display: none; }
+    body.embedded main { height: calc(100vh - 42px); padding: 8px; }
+    body.embedded #board { width: min(calc(100vw - 16px), calc(100vh - 58px)); }
   </style>
 </head>
 <body>
@@ -25,6 +38,7 @@
   <script src="assets/netbuddies-colyseus-compat.js"></script>
   <script>
     const params = new URLSearchParams(location.search);
+    document.body.classList.toggle("embedded", params.get("embedded") === "1");
     const colyseusUrl = params.get("colyseus");
     const roomName = params.get("room") || "leapfrog_checkers";
     const inviteRoomId = params.get("roomId") || "default";

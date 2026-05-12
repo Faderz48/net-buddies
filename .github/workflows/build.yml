@@ -42,6 +42,13 @@ jobs:
           --self-contained true
           --output publish/win-x64-client-installer-files
 
+      - name: Download WebView2 runtime bootstrapper
+        shell: pwsh
+        run: >
+          Invoke-WebRequest
+          -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+          -OutFile publish/win-x64-client-installer-files/MicrosoftEdgeWebview2Setup.exe
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress --yes
 

@@ -71,6 +71,24 @@
     .hint {
       text-align: center;
     }
+
+    body.embedded .shell {
+      gap: 6px;
+      padding: 8px;
+    }
+
+    body.embedded .topbar {
+      min-height: 34px;
+    }
+
+    body.embedded h1,
+    body.embedded .hint {
+      display: none;
+    }
+
+    body.embedded canvas {
+      min-height: 0;
+    }
   </style>
 </head>
 <body>
@@ -90,6 +108,7 @@
   <script src="assets/netbuddies-colyseus-compat.js"></script>
   <script>
     const query = new URLSearchParams(location.search);
+    document.body.classList.toggle("embedded", query.get("embedded") === "1");
     const colyseusUrl = query.get("colyseus") || "ws://127.0.0.1:2567";
     const roomName = query.get("room") || "snake_battle";
     const roomId = query.get("roomId") || "default";

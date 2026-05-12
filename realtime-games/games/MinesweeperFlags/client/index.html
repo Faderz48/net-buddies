@@ -6,19 +6,33 @@
   <title>Minesweeper Flags</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: "Segoe UI", sans-serif; background: #eaf6ff; color: #12243a; }
+    html, body { width: 100%; height: 100%; }
+    body { margin: 0; font-family: "Segoe UI", sans-serif; background: #eaf6ff; color: #12243a; overflow: hidden; }
     header { background: #0d63aa; color: white; padding: 14px 18px; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
     h1 { margin: 0; font-size: 25px; }
     #status { font-size: 14px; opacity: .95; }
-    main { padding: 14px; display: grid; place-items: center; }
-    #board { display: grid; grid-template-columns: repeat(16, 34px); border: 2px solid #5d8ab3; background: #5d8ab3; }
+    main { height: calc(100vh - 82px); padding: 14px; display: grid; place-items: center; overflow: hidden; }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      grid-template-rows: repeat(16, 1fr);
+      width: min(calc(100vw - 28px), calc(100vh - 110px));
+      aspect-ratio: 1;
+      border: 2px solid #5d8ab3;
+      background: #5d8ab3;
+    }
     button.cell {
-      width: 34px; height: 34px; border: 1px solid #5d8ab3; padding: 0; font-weight: 800;
+      width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid #5d8ab3; padding: 0; font-weight: 800;
+      font-size: clamp(12px, 2.2vmin, 24px);
       background: #afd3f4 url("assets/tile-covered.png") center/cover; color: #0757b8;
     }
     button.cell.alt { background-image: url("assets/tile-covered-alt.png"); }
     button.cell.open { background: #eff6fc url("assets/tile-open.png") center/cover; }
     button.cell.flag { background-image: url("assets/flag.png"); color: transparent; }
+    body.embedded header { padding: 8px 14px; min-height: 42px; }
+    body.embedded h1 { display: none; }
+    body.embedded main { height: calc(100vh - 42px); padding: 8px; }
+    body.embedded #board { width: min(calc(100vw - 16px), calc(100vh - 58px)); }
   </style>
 </head>
 <body>
@@ -31,6 +45,7 @@
   <script src="assets/netbuddies-colyseus-compat.js"></script>
   <script>
     const params = new URLSearchParams(location.search);
+    document.body.classList.toggle("embedded", params.get("embedded") === "1");
     const colyseusUrl = params.get("colyseus");
     const roomName = params.get("room") || "minesweeper_flags";
     const inviteRoomId = params.get("roomId") || "default";
