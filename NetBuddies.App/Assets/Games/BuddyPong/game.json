@@ -3,7 +3,6 @@
   "name": "Buddy Pong",
   "description": "Fast real-time paddle match over the game server.",
   "runtime": "web-game",
-  "builtInType": "BuddyPong",
   "room": "buddy_pong",
   "clientKind": "web-game",
   "serverPortOffset": 0,

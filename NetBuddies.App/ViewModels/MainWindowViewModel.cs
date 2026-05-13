@@ -342,7 +342,14 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
         var gameId = Guid.NewGuid().ToString("N");
         var serverUrl = BuildColyseusServerUrl();
-        var payload = JsonSerializer.Serialize(new WebGameInvite(game.Id, game.Name, serverUrl));
+        var payload = JsonSerializer.Serialize(new WebGameInvite
+        {
+            GameId = game.Id,
+            GameName = game.Name,
+            ServerUrl = serverUrl,
+            Room = game.Room,
+            ClientEntry = game.ClientEntry
+        });
         _webGameSessions[gameId] = new WebGameViewModel(
             gameId,
             game,
@@ -750,17 +757,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         if (packet.GameType == "WebGame")
         {
             var invite = ParseWebGameInvite(packet.Text);
-            var game = GameCatalogService.FindGame(invite.GameId);
-            if (game is null)
-            {
-                conversation.Messages.Add(conversation.CreateMessage(
-                    "Net Buddies",
-                    $"Could not find game folder for {invite.GameName}.",
-                    isMine: false,
-                    isEvent: true));
-                _ = _client.SendGameAsync(packet.From, packet.GameId, packet.GameType, "Decline", packet.Text);
-                return;
-            }
+            var game = GameCatalogService.FindGame(invite.GameId) ?? CreateRemoteWebGame(invite);
 
             var webSession = CreateWebGameSession(packet.GameId, packet.From, game, invite, isHost: false);
             OpenWebGameRequested?.Invoke(webSession);
@@ -802,11 +799,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         if (packet.GameAction == "Accept")
         {
             var invite = ParseWebGameInvite(packet.Text);
-            var game = GameCatalogService.FindGame(invite.GameId);
-            if (game is null)
-            {
-                return;
-            }
+            var game = GameCatalogService.FindGame(invite.GameId) ?? CreateRemoteWebGame(invite);
 
             var session = _webGameSessions.TryGetValue(packet.GameId, out var existing)
                 ? existing
@@ -947,12 +940,27 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     {
         try
         {
-            return JsonSerializer.Deserialize<WebGameInvite>(text) ?? new WebGameInvite("", "Web Game", "");
+            return JsonSerializer.Deserialize<WebGameInvite>(text) ?? new WebGameInvite();
         }
         catch
         {
-            return new WebGameInvite("", "Web Game", "");
+            return new WebGameInvite();
         }
+    }
+
+    private static GameCatalogItem CreateRemoteWebGame(WebGameInvite invite)
+    {
+        return new GameCatalogItem
+        {
+            Id = string.IsNullOrWhiteSpace(invite.GameId) ? "RemoteWebGame" : invite.GameId,
+            Name = string.IsNullOrWhiteSpace(invite.GameName) ? "Web Game" : invite.GameName,
+            Description = "Loaded from the Net Buddies game server.",
+            Runtime = "web-game",
+            Room = string.IsNullOrWhiteSpace(invite.Room) ? invite.GameId : invite.Room,
+            ClientKind = "web-game",
+            ClientEntry = string.IsNullOrWhiteSpace(invite.ClientEntry) ? "client/index.html" : invite.ClientEntry,
+            FolderPath = ""
+        };
     }
 
     private WebGameViewModel CreateWebGameSession(string gameId, string buddyName, GameCatalogItem game, WebGameInvite invite, bool isHost)
@@ -965,7 +973,14 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         return session;
     }
 
-    private sealed record WebGameInvite(string GameId, string GameName, string ServerUrl);
+    private sealed class WebGameInvite
+    {
+        public string GameId { get; init; } = "";
+        public string GameName { get; init; } = "Web Game";
+        public string ServerUrl { get; init; } = "";
+        public string Room { get; init; } = "";
+        public string ClientEntry { get; init; } = "client/index.html";
+    }
 
     private ChatRoomViewModel GetRoom(string roomName)
     {

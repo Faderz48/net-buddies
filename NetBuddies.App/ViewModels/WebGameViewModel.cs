@@ -71,13 +71,18 @@ public sealed partial class WebGameViewModel : ViewModelBase
 
     private Uri BuildSource(GameCatalogItem game)
     {
-        if (!File.Exists(game.ClientEntryPath))
+        var source = BuildServerHostedSource(game);
+        if (source is null)
         {
-            StatusText = $"Missing web game entry file: {game.ClientEntryPath}";
-            return new Uri("about:blank");
+            if (!File.Exists(game.ClientEntryPath))
+            {
+                StatusText = $"Missing web game entry file: {game.ClientEntryPath}";
+                return new Uri("about:blank");
+            }
+
+            source = new Uri(Path.GetFullPath(game.ClientEntryPath));
         }
 
-        var source = new Uri(Path.GetFullPath(game.ClientEntryPath));
         var relayUrl = BuildRelayUrl();
         var builder = new UriBuilder(source)
         {
@@ -92,6 +97,29 @@ public sealed partial class WebGameViewModel : ViewModelBase
                 $"relay={Uri.EscapeDataString(relayUrl)}",
                 "embedded=1",
                 "uiVersion=2")
+        };
+        return builder.Uri;
+    }
+
+    private Uri? BuildServerHostedSource(GameCatalogItem game)
+    {
+        if (!Uri.TryCreate(ServerUrl, UriKind.Absolute, out var serverUri))
+        {
+            return null;
+        }
+
+        var scheme = serverUri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase)
+            ? "https"
+            : "http";
+        var clientEntry = string.IsNullOrWhiteSpace(game.ClientEntry)
+            ? "client/index.html"
+            : game.ClientEntry.Replace('\\', '/').TrimStart('/');
+        var builder = new UriBuilder(serverUri)
+        {
+            Scheme = scheme,
+            Port = serverUri.IsDefaultPort ? -1 : serverUri.Port,
+            Path = $"games/{Uri.EscapeDataString(CatalogGameId)}/{clientEntry}",
+            Query = ""
         };
         return builder.Uri;
     }
