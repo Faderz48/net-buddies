@@ -93,15 +93,19 @@
                 BorderBrush="{DynamicResource NbMessageBorderBrush}"
                 BorderThickness="1,1,0,0"
                 Padding="12">
-            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
                 <Button Content="Open Games Folder"
                         MinWidth="140"
                         Click="OpenGamesFolder_Click"/>
                 <Button Grid.Column="1"
+                        Content="Install Add-on"
+                        MinWidth="120"
+                        Click="InstallAddon_Click"/>
+                <Button Grid.Column="2"
                         Content="Refresh"
                         MinWidth="90"
                         Click="Refresh_Click"/>
-                <Button Grid.Column="2"
+                <Button Grid.Column="3"
                         Content="Close"
                         HorizontalAlignment="Right"
                         MinWidth="96"

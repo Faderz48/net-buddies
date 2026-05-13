@@ -288,6 +288,9 @@
                                 <Button Content="Refresh games"
                                         Click="RefreshRealtimeGames_Click"
                                         MinWidth="130"/>
+                                <Button Content="Install game"
+                                        Click="InstallRealtimeGame_Click"
+                                        MinWidth="130"/>
                                 <Button Content="Open games"
                                         Click="OpenRealtimeGamesFolder_Click"
                                         MinWidth="130"/>

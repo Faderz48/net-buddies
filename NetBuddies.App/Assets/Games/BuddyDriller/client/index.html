@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buddy Driller</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #08121d;
+      color: #f7fbff;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0d5f9e 0%, #08121d 68%);
+      overflow: hidden;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      height: 100vh;
+      padding: 14px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      min-height: 58px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .status {
+      margin-top: 5px;
+      color: #d9f0ff;
+      font-size: 15px;
+    }
+
+    .hud {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud span {
+      padding: 7px 10px;
+      border: 1px solid rgba(199, 233, 255, .28);
+      background: rgba(4, 20, 36, .44);
+      border-radius: 8px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 360px;
+      background: #071320;
+      border: 1px solid rgba(191, 230, 255, .35);
+      box-shadow: inset 0 0 0 1px rgba(8, 86, 146, .9);
+    }
+
+    .hint {
+      text-align: center;
+      color: #d9f0ff;
+      font-size: 14px;
+    }
+
+    body.embedded .shell {
+      padding: 8px;
+      gap: 6px;
+    }
+
+    body.embedded .topbar {
+      min-height: 36px;
+    }
+
+    body.embedded h1,
+    body.embedded .hint {
+      display: none;
+    }
+
+    body.embedded .status {
+      margin-top: 0;
+    }
+
+    body.embedded canvas {
+      min-height: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Buddy Driller</h1>
+        <div class="status" id="status">Connecting...</div>
+      </div>
+      <div class="hud" id="hud"></div>
+    </header>
+    <canvas id="board" width="900" height="650"></canvas>
+    <div class="hint">Move/drill with arrows or W/A/S/D. Space drills down. Grab air capsules and avoid falling blocks.</div>
+  </div>
+
+  <script src="assets/colyseus.js"></script>
+  <script src="assets/netbuddies-colyseus-compat.js"></script>
+  <script>
+    const query = new URLSearchParams(location.search);
+    document.body.classList.toggle("embedded", query.get("embedded") === "1");
+    const colyseusUrl = query.get("colyseus") || "ws://127.0.0.1:2567";
+    const roomName = query.get("room") || "buddy_driller";
+    const roomId = query.get("roomId") || "default";
+    const playerName = query.get("playerName") || "Buddy";
+    const buddyName = query.get("buddyName") || "Buddy";
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
+    const statusEl = document.getElementById("status");
+    const hudEl = document.getElementById("hud");
+    let room = null;
+    let ended = false;
+    let drawQueued = false;
+    let state = {
+      width: 13,
+      viewRows: 18,
+      cameraTop: 0,
+      rows: [],
+      phase: "waiting",
+      players: {}
+    };
+
+    window.addEventListener("error", (event) => {
+      showError(event.message || "The game renderer hit an error.");
+    });
+
+    window.addEventListener("unhandledrejection", (event) => {
+      showError(event.reason?.message || event.reason || "The game connection hit an error.");
+    });
+
+    const blockColors = {
+      1: ["#2bb6ff", "#0c6da4"],
+      2: ["#ffdb4c", "#b67809"],
+      3: ["#65df65", "#168737"],
+      4: ["#ff6b84", "#a91f42"],
+      5: ["#b881ff", "#6441b8"],
+      6: ["#98745a", "#4c3528"],
+      9: ["#83f7ff", "#0e7f95"]
+    };
+
+    const assetFiles = {
+      playerDown: "assets/player-down.png",
+      playerUp: "assets/player-up.png",
+      playerLeft: "assets/player-left.png",
+      playerRight: "assets/player-right.png",
+      playerDead: "assets/player-dead.png",
+      blockBlue: "assets/block-blue.png",
+      blockYellow: "assets/block-yellow.png",
+      blockGreen: "assets/block-green.png",
+      blockRed: "assets/block-red.png",
+      blockPurple: "assets/block-purple.png",
+      blockHard: "assets/block-hard.png",
+      airCapsule: "assets/air-capsule.png"
+    };
+
+    const sprites = Object.fromEntries(Object.entries(assetFiles).map(([key, src]) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = queueDraw;
+      image.src = src;
+      return [key, image];
+    }));
+
+    const blockSprites = {
+      1: "blockBlue",
+      2: "blockYellow",
+      3: "blockGreen",
+      4: "blockRed",
+      5: "blockPurple",
+      6: "blockHard",
+      9: "airCapsule"
+    };
+
+    const keyMap = {
+      arrowleft: "left",
+      a: "left",
+      arrowright: "right",
+      d: "right",
+      arrowup: "up",
+      w: "up",
+      arrowdown: "down",
+      s: "down"
+    };
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+      const direction = key === " " ? "down" : keyMap[key];
+      if (!direction || !room || ended) {
+        return;
+      }
+
+      event.preventDefault();
+      room.send("input", { action: "drill", direction });
+    });
+
+    async function connect() {
+      try {
+        const client = new Colyseus.Client(colyseusUrl);
+        room = await client.joinOrCreate(roomName, { roomId, roomKey: roomId, name: playerName });
+        statusEl.textContent = `Waiting for ${buddyName}...`;
+        room.onMessage("start", () => {
+          statusEl.textContent = "Drill down. Deepest run wins.";
+        });
+        room.onMessage("state", (message) => {
+          state = normalizeState(message);
+          updateHud();
+          updateStatus();
+          queueDraw();
+        });
+        room.onMessage("gameOver", (message) => {
+          ended = true;
+          state = normalizeState({ ...state, ...message, phase: "ended" });
+          updateHud();
+          updateStatus(message);
+          queueDraw();
+        });
+        room.onLeave(() => {
+          if (!ended) {
+            statusEl.textContent = "Disconnected from game server.";
+          }
+          room = null;
+        });
+      } catch (error) {
+        statusEl.textContent = `Could not connect: ${error.message || error}`;
+      }
+    }
+
+    function showError(error) {
+      statusEl.textContent = `Buddy Driller error: ${String(error).slice(0, 160)}`;
+    }
+
+    function normalizeState(message) {
+      const next = message && typeof message === "object" ? message : {};
+      return {
+        width: Number.isFinite(next.width) ? next.width : 13,
+        viewRows: Number.isFinite(next.viewRows) ? next.viewRows : 18,
+        cameraTop: Number.isFinite(next.cameraTop) ? next.cameraTop : 0,
+        totalRows: Number.isFinite(next.totalRows) ? next.totalRows : 260,
+        rows: Array.isArray(next.rows) ? next.rows : [],
+        phase: typeof next.phase === "string" ? next.phase : "waiting",
+        reason: typeof next.reason === "string" ? next.reason : "",
+        winnerSessionId: typeof next.winnerSessionId === "string" ? next.winnerSessionId : "",
+        players: next.players && typeof next.players === "object" ? next.players : {}
+      };
+    }
+
+    function updateHud() {
+      hudEl.innerHTML = "";
+      for (const [sessionId, player] of Object.entries(state.players || {})) {
+        const item = document.createElement("span");
+        item.style.borderColor = player.color || "#ffffff";
+        const label = sessionId === room?.sessionId ? "You" : player.name || buddyName;
+        item.textContent = `${label}: ${player.maxDepth || 0}m | Air ${player.air ?? 0}%${player.alive ? "" : " | out"}`;
+        hudEl.appendChild(item);
+      }
+    }
+
+    function updateStatus(result) {
+      if (state.phase === "waiting") {
+        statusEl.textContent = `Waiting for ${buddyName}...`;
+        return;
+      }
+
+      if (state.phase === "ended" || result) {
+        const winner = result?.winnerSessionId || state.winnerSessionId || "";
+        if (result?.reason === "opponent_left" || state.reason === "opponent_left") {
+          statusEl.textContent = "Buddy left. You win.";
+        } else if (!winner) {
+          statusEl.textContent = "Draw. Same depth.";
+        } else {
+          statusEl.textContent = winner === room?.sessionId ? "You win. Deepest run." : "Buddy wins. They drilled deeper.";
+        }
+        return;
+      }
+
+      const me = state.players?.[room?.sessionId || ""];
+      statusEl.textContent = me?.alive
+        ? `Depth ${me.maxDepth || 0}m. Keep your air up.`
+        : `You are out: ${deathText(me?.reason)}. Waiting for final result.`;
+    }
+
+    function deathText(reason) {
+      if (reason === "air") return "air ran out";
+      if (reason === "crushed") return "crushed";
+      if (reason === "ended") return "ended";
+      return "out";
+    }
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      const scale = Math.max(1, Math.min(1.5, window.devicePixelRatio || 1));
+      canvas.width = Math.max(1, Math.floor(rect.width * scale));
+      canvas.height = Math.max(1, Math.floor(rect.height * scale));
+      queueDraw();
+    }
+
+    function queueDraw() {
+      if (drawQueued) {
+        return;
+      }
+
+      drawQueued = true;
+      requestAnimationFrame(() => {
+        drawQueued = false;
+        try {
+          draw();
+        } catch (error) {
+          showError(error.message || error);
+        }
+      });
+    }
+
+    function draw() {
+      const width = canvas.width;
+      const height = canvas.height;
+      if (width <= 1 || height <= 1) {
+        return;
+      }
+
+      ctx.clearRect(0, 0, width, height);
+      const boardWidth = Math.max(1, state.width || 13);
+      const boardRows = Math.max(1, state.viewRows || 18);
+      const cell = Math.max(6, Math.floor(Math.min(width / boardWidth, height / boardRows)));
+      const gridWidth = cell * boardWidth;
+      const gridHeight = cell * boardRows;
+      const offsetX = Math.floor((width - gridWidth) / 2);
+      const offsetY = Math.floor((height - gridHeight) / 2);
+
+      ctx.fillStyle = "#071320";
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "#102840";
+      ctx.fillRect(offsetX, offsetY, gridWidth, gridHeight);
+
+      for (let rowIndex = 0; rowIndex < boardRows; rowIndex++) {
+        const row = state.rows?.[rowIndex] || [];
+        for (let x = 0; x < boardWidth; x++) {
+          drawCell(offsetX + x * cell, offsetY + rowIndex * cell, cell, row[x] || 0);
+        }
+      }
+
+      for (const [sessionId, player] of Object.entries(state.players || {})) {
+        const visibleY = player.y - state.cameraTop;
+        if (visibleY < -1 || visibleY > boardRows) {
+          continue;
+        }
+        drawPlayer(offsetX + player.x * cell, offsetY + visibleY * cell, cell, player, sessionId === room?.sessionId);
+      }
+
+      ctx.strokeStyle = "rgba(210,238,255,.35)";
+      ctx.lineWidth = Math.max(1, Math.floor(cell * 0.035));
+      for (let x = 0; x <= boardWidth; x++) {
+        ctx.beginPath();
+        ctx.moveTo(offsetX + x * cell, offsetY);
+        ctx.lineTo(offsetX + x * cell, offsetY + gridHeight);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= boardRows; y++) {
+        ctx.beginPath();
+        ctx.moveTo(offsetX, offsetY + y * cell);
+        ctx.lineTo(offsetX + gridWidth, offsetY + y * cell);
+        ctx.stroke();
+      }
+    }
+
+    function drawCell(x, y, size, value) {
+      if (!value) {
+        ctx.fillStyle = "#092033";
+        ctx.fillRect(x, y, size, size);
+        return;
+      }
+
+      const sprite = sprites[blockSprites[value]];
+      if (imageReady(sprite)) {
+        drawSprite(sprite, x, y, size, size);
+        return;
+      }
+
+      const colors = blockColors[value] || ["#8995a1", "#505a64"];
+      const inset = Math.max(1, Math.floor(size * 0.06));
+      const radius = Math.max(3, size * 0.12);
+      const gradient = ctx.createLinearGradient(x, y, x, y + size);
+      gradient.addColorStop(0, colors[0]);
+      gradient.addColorStop(1, colors[1]);
+      ctx.fillStyle = gradient;
+      roundRect(x + inset, y + inset, size - inset * 2, size - inset * 2, radius);
+      ctx.fill();
+
+      if (value === 6) {
+        ctx.fillStyle = "rgba(255,255,255,.18)";
+        ctx.fillRect(x + size * .22, y + size * .24, size * .56, size * .12);
+      } else if (value === 9) {
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(x + size * .5, y + size * .5, size * .22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#0d7f96";
+        ctx.font = `900 ${Math.floor(size * .36)}px Segoe UI`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("O2", x + size * .5, y + size * .51);
+      }
+    }
+
+    function drawPlayer(x, y, size, player, mine) {
+      const direction = normalizeDirection(player.direction);
+      const sprite = player.alive ? sprites[`player${titleCase(direction)}`] : sprites.playerDead;
+      if (imageReady(sprite)) {
+        drawSprite(sprite, x + size * .06, y + size * .03, size * .88, size * .92);
+        if (mine) {
+          ctx.strokeStyle = "rgba(255,255,255,.85)";
+          ctx.lineWidth = Math.max(2, size * .035);
+          ctx.strokeRect(x + size * .08, y + size * .08, size * .84, size * .84);
+        }
+        return;
+      }
+
+      const cx = x + size / 2;
+      const cy = y + size / 2;
+      const body = size * .34;
+      ctx.fillStyle = player.alive ? player.color || "#ffdf5a" : "#7b8793";
+      ctx.beginPath();
+      ctx.arc(cx, cy, body, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = mine ? "#ffffff" : "#041421";
+      ctx.beginPath();
+      ctx.moveTo(cx, y + size * .08);
+      ctx.lineTo(cx - size * .18, y + size * .36);
+      ctx.lineTo(cx + size * .18, y + size * .36);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#041421";
+      ctx.lineWidth = Math.max(2, size * .045);
+      ctx.stroke();
+    }
+
+    function imageReady(image) {
+      return image && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
+    }
+
+    function drawSprite(image, x, y, width, height) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(image, x, y, width, height);
+    }
+
+    function normalizeDirection(direction) {
+      const value = String(direction || "down").toLowerCase();
+      return value === "up" || value === "left" || value === "right" ? value : "down";
+    }
+
+    function titleCase(value) {
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    function roundRect(x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + width, y, x + width, y + height, radius);
+      ctx.arcTo(x + width, y + height, x, y + height, radius);
+      ctx.arcTo(x, y + height, x, y, radius);
+      ctx.arcTo(x, y, x + width, y, radius);
+      ctx.closePath();
+    }
+
+    state = normalizeState(state);
+    requestAnimationFrame(() => {
+      resize();
+      connect();
+    });
+  </script>
+</body>
+</html>

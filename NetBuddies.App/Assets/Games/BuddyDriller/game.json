@@ -1,0 +1,12 @@
+{
+  "id": "BuddyDriller",
+  "name": "Buddy Driller",
+  "description": "Race downward through collapsing blocks while managing air. Deepest buddy wins.",
+  "runtime": "web-game",
+  "room": "buddy_driller",
+  "clientKind": "web-game",
+  "serverPortOffset": 0,
+  "clientEntry": "client/index.html",
+  "serverEntry": "server/room.js",
+  "icon": "icon.png"
+}

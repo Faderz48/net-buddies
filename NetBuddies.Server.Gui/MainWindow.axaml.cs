@@ -322,6 +322,45 @@ public partial class MainWindow : Window
         RefreshRealtimeGamesList(logSuccess: true);
     }
 
+    private async void InstallRealtimeGame_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Choose a Net Buddies game add-on zip",
+                AllowMultiple = false,
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("Net Buddies game add-on")
+                    {
+                        Patterns = ["*.zip"]
+                    }
+                ]
+            });
+
+            var path = files.FirstOrDefault()?.TryGetLocalPath();
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            var realtimeDirectory = PrepareWritableRealtimeGamesDirectory();
+            var gamesDirectory = Path.Combine(realtimeDirectory, "games");
+            var result = GameAddonInstaller.InstallFromZip(path, gamesDirectory);
+            RefreshRealtimeGamesList(logSuccess: true);
+            AddLog($"Installed game add-on on server: {result.Name} -> {result.InstalledPath}");
+            RealtimeStatusText.Text = _realtimeProcess is { HasExited: false }
+                ? $"Installed {result.Name}. Restart the server to load the new Colyseus room."
+                : $"Installed {result.Name}. It will load the next time the server starts.";
+        }
+        catch (Exception ex)
+        {
+            RealtimeStatusText.Text = $"Could not install game add-on: {ex.Message}";
+            AddLog(RealtimeStatusText.Text);
+        }
+    }
+
     private void StartStunnel(int serverPort, int publicTlsPort)
     {
         var stunnelExecutable = FindStunnelExecutable();
@@ -881,8 +920,9 @@ public partial class MainWindow : Window
               "runtime": "web-game",
               "room": "netbuddies/webgame",
               "clientKind": "web-game",
-              "serverPortOffset": 1,
+              "serverPortOffset": 0,
               "clientEntry": "client/index.html",
+              "serverEntry": "server/room.js",
               "icon": "icon.png"
             }
             """);

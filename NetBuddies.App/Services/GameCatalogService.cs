@@ -78,9 +78,10 @@ public static class GameCatalogService
             BuiltInType = "",
             Room = "",
             ClientKind = "web-game",
-            ServerPortOffset = 1,
+            ServerPortOffset = 0,
             Icon = "icon.png",
-            ClientEntry = "client/index.html"
+            ClientEntry = "client/index.html",
+            ServerEntry = "server/room.js"
         };
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest, JsonOptions));
         var clientDirectory = Path.Combine(folderPath, "client");
@@ -185,5 +186,6 @@ public static class GameCatalogService
         public int ServerPortOffset { get; init; }
         public string Icon { get; init; } = "";
         public string ClientEntry { get; init; } = "";
+        public string ServerEntry { get; init; } = "";
     }
 }
