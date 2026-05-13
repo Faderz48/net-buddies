@@ -933,7 +933,25 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             host = "127.0.0.1";
         }
 
-        return $"ws://{host}:2567";
+        if (Uri.TryCreate(host, UriKind.Absolute, out var absolute)
+            && absolute.Scheme.StartsWith("ws", StringComparison.OrdinalIgnoreCase))
+        {
+            return new UriBuilder(absolute)
+            {
+                Scheme = absolute.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase) ? "wss" : "ws",
+                Port = absolute.IsDefaultPort ? 2567 : absolute.Port,
+                Path = "",
+                Query = ""
+            }.Uri.ToString().TrimEnd('/');
+        }
+
+        var hostOnly = host;
+        if (Uri.TryCreate(host.Contains("://", StringComparison.Ordinal) ? host : $"tcp://{host}", UriKind.Absolute, out var parsed))
+        {
+            hostOnly = parsed.Host;
+        }
+
+        return new UriBuilder("ws", hostOnly, 2567).Uri.ToString().TrimEnd('/');
     }
 
     private static WebGameInvite ParseWebGameInvite(string text)

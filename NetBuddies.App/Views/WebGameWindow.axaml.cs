@@ -81,6 +81,11 @@ public partial class WebGameWindow : Window
         GameHost.Children.Add(FallbackPanel);
     }
 
+    public void ShowWebViewStartupFailure(string reason)
+    {
+        ShowFallback($"The in-app game renderer could not start: {reason}", canInstallRuntime: OperatingSystem.IsWindows());
+    }
+
     private static string GetWebViewUnavailableReason()
     {
         if (OperatingSystem.IsWindows() && !IsWebView2RuntimeInstalled())
