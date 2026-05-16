@@ -938,7 +938,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         {
             return new UriBuilder(absolute)
             {
-                Scheme = absolute.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase) ? "wss" : "ws",
+                Scheme = "ws",
                 Port = absolute.IsDefaultPort ? 2567 : absolute.Port,
                 Path = "",
                 Query = ""
@@ -968,6 +968,24 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     private static GameCatalogItem CreateRemoteWebGame(WebGameInvite invite)
     {
+        var localGame = GameCatalogService.FindGame(invite.GameId);
+        if (localGame is not null && localGame.Runtime == "web-game")
+        {
+            return new GameCatalogItem
+            {
+                Id = localGame.Id,
+                Name = string.IsNullOrWhiteSpace(invite.GameName) ? localGame.Name : invite.GameName,
+                Description = localGame.Description,
+                Runtime = localGame.Runtime,
+                Room = string.IsNullOrWhiteSpace(invite.Room) ? localGame.Room : invite.Room,
+                ClientKind = localGame.ClientKind,
+                ClientEntry = string.IsNullOrWhiteSpace(invite.ClientEntry) ? localGame.ClientEntry : invite.ClientEntry,
+                FolderPath = localGame.FolderPath,
+                IconPath = localGame.IconPath,
+                IsUserGame = localGame.IsUserGame
+            };
+        }
+
         return new GameCatalogItem
         {
             Id = string.IsNullOrWhiteSpace(invite.GameId) ? "RemoteWebGame" : invite.GameId,

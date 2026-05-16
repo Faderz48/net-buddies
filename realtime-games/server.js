@@ -35,6 +35,13 @@ class NetBuddiesLobbyRoom extends Room {
 }
 
 const httpServer = http.createServer((request, response) => {
+  applyCors(response);
+  if (request.method === "OPTIONS") {
+    response.writeHead(204);
+    response.end();
+    return;
+  }
+
   const requestUrl = new URL(request.url, `http://${request.headers.host || "127.0.0.1"}`);
 
   if (requestUrl.pathname === "/health") {
@@ -70,6 +77,13 @@ const loadedAddonRooms = loadAddonRooms(gameServer, detectedGames);
 
 gameServer.listen(port, bindAddress);
 const pongServer = http.createServer((request, response) => {
+  applyCors(response);
+  if (request.method === "OPTIONS") {
+    response.writeHead(204);
+    response.end();
+    return;
+  }
+
   if (request.url === "/health") {
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ ok: true, service: "netbuddies-game-relay", relays: ["buddy-pong", "web-game"] }));
@@ -209,6 +223,12 @@ function contentTypeFor(filePath) {
     default:
       return "application/octet-stream";
   }
+}
+
+function applyCors(response) {
+  response.setHeader("access-control-allow-origin", "*");
+  response.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
+  response.setHeader("access-control-allow-headers", "Content-Type, Authorization");
 }
 
 function loadAddonRooms(server, games) {

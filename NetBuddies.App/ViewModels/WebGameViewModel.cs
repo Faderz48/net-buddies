@@ -52,16 +52,17 @@ public sealed partial class WebGameViewModel : ViewModelBase
 
     private Uri BuildSource(GameCatalogItem game)
     {
-        var source = BuildServerHostedSource(game);
+        Uri? source = null;
+        if (!string.IsNullOrWhiteSpace(game.FolderPath) && File.Exists(game.ClientEntryPath))
+        {
+            source = new Uri(Path.GetFullPath(game.ClientEntryPath));
+        }
+
+        source ??= BuildServerHostedSource(game);
         if (source is null)
         {
-            if (!File.Exists(game.ClientEntryPath))
-            {
-                StatusText = $"Missing web game entry file: {game.ClientEntryPath}";
-                return new Uri("about:blank");
-            }
-
-            source = new Uri(Path.GetFullPath(game.ClientEntryPath));
+            StatusText = $"Missing web game entry file: {game.ClientEntryPath}";
+            return new Uri("about:blank");
         }
 
         var relayUrl = BuildRelayUrl();
@@ -89,15 +90,12 @@ public sealed partial class WebGameViewModel : ViewModelBase
             return null;
         }
 
-        var scheme = serverUri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase)
-            ? "https"
-            : "http";
         var clientEntry = string.IsNullOrWhiteSpace(game.ClientEntry)
             ? "client/index.html"
             : game.ClientEntry.Replace('\\', '/').TrimStart('/');
         var builder = new UriBuilder(serverUri)
         {
-            Scheme = scheme,
+            Scheme = "http",
             Port = serverUri.IsDefaultPort ? -1 : serverUri.Port,
             Path = $"games/{Uri.EscapeDataString(CatalogGameId)}/{clientEntry}",
             Query = ""
@@ -115,6 +113,7 @@ public sealed partial class WebGameViewModel : ViewModelBase
 
         var builder = new UriBuilder(serverUri)
         {
+            Scheme = "ws",
             Port = serverUri.IsDefaultPort ? -1 : serverUri.Port + 1,
             Path = $"netbuddies/webgame/{Uri.EscapeDataString(CatalogGameId)}/{Uri.EscapeDataString(GameId)}",
             Query = ""
