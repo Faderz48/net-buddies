@@ -11,6 +11,18 @@ function readIntArg(name, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+const allowedInsecureGameTlsHosts = parseAllowedTlsHosts(readArg('allow-insecure-game-tls'));
+
+app.on('certificate-error', (event, _webContents, url, _error, _certificate, callback) => {
+  if (isAllowedInsecureGameTlsUrl(url)) {
+    event.preventDefault();
+    callback(true);
+    return;
+  }
+
+  callback(false);
+});
+
 function createWindow() {
   const url = readArg('url');
   const title = readArg('title', 'Net Buddies Game');
@@ -100,3 +112,38 @@ app.whenReady().then(createWindow);
 app.on('window-all-closed', () => {
   app.quit();
 });
+
+function parseAllowedTlsHosts(value) {
+  const hosts = new Set();
+  for (const entry of String(value || '').split(',')) {
+    const host = normalizeHost(entry);
+    if (host) {
+      hosts.add(host);
+    }
+  }
+
+  return hosts;
+}
+
+function isAllowedInsecureGameTlsUrl(value) {
+  if (allowedInsecureGameTlsHosts.size === 0) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'wss:') {
+      return false;
+    }
+
+    const host = normalizeHost(url.host);
+    const hostname = normalizeHost(url.hostname);
+    return allowedInsecureGameTlsHosts.has(host) || allowedInsecureGameTlsHosts.has(hostname);
+  } catch {
+    return false;
+  }
+}
+
+function normalizeHost(value) {
+  return String(value || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+}

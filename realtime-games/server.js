@@ -1,4 +1,5 @@
 const http = require("http");
+const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const { Server, Room } = require("colyseus");
@@ -8,6 +9,9 @@ const port = Number.parseInt(process.env.NETBUDDIES_REALTIME_PORT || process.arg
 const bindAddress = process.env.NETBUDDIES_REALTIME_BIND || process.argv[3] || "0.0.0.0";
 const pongPort = Number.parseInt(process.env.NETBUDDIES_PONG_PORT || process.argv[4] || String(port + 1), 10);
 const gamesDirectory = process.env.NETBUDDIES_REALTIME_GAMES_DIR || path.join(__dirname, "games");
+const tlsOptions = loadTlsOptions();
+const httpProtocol = tlsOptions ? "https" : "http";
+const websocketProtocol = tlsOptions ? "wss" : "ws";
 const detectedGames = loadGameManifests(gamesDirectory);
 class NetBuddiesLobbyRoom extends Room {
   onCreate(options) {
@@ -34,7 +38,7 @@ class NetBuddiesLobbyRoom extends Room {
   }
 }
 
-const httpServer = http.createServer((request, response) => {
+const httpServer = createHttpServer((request, response) => {
   applyCors(response);
   if (request.method === "OPTIONS") {
     response.writeHead(204);
@@ -42,7 +46,7 @@ const httpServer = http.createServer((request, response) => {
     return;
   }
 
-  const requestUrl = new URL(request.url, `http://${request.headers.host || "127.0.0.1"}`);
+  const requestUrl = new URL(request.url, `${httpProtocol}://${request.headers.host || "127.0.0.1"}`);
 
   if (requestUrl.pathname === "/health") {
     response.writeHead(200, { "content-type": "application/json" });
@@ -76,7 +80,7 @@ gameServer.define("lobby", NetBuddiesLobbyRoom);
 const loadedAddonRooms = loadAddonRooms(gameServer, detectedGames);
 
 gameServer.listen(port, bindAddress);
-const pongServer = http.createServer((request, response) => {
+const pongServer = createHttpServer((request, response) => {
   applyCors(response);
   if (request.method === "OPTIONS") {
     response.writeHead(204);
@@ -102,9 +106,9 @@ const pongServer = http.createServer((request, response) => {
 attachWebGameRelay(pongServer);
 pongServer.listen(pongPort, bindAddress);
 
-console.log(`Net Buddies real-time game server listening on ${bindAddress}:${port}`);
-console.log(`Health: http://127.0.0.1:${port}/health`);
-console.log(`Web Game Relay: ws://127.0.0.1:${pongPort}/netbuddies/webgame/{gameId}/{roomId}`);
+console.log(`Net Buddies real-time game server listening on ${bindAddress}:${port} (${httpProtocol.toUpperCase()}/${websocketProtocol.toUpperCase()})`);
+console.log(`Health: ${httpProtocol}://127.0.0.1:${port}/health`);
+console.log(`Web Game Relay: ${websocketProtocol}://127.0.0.1:${pongPort}/netbuddies/webgame/{gameId}/{roomId}`);
 console.log(`Detected ${detectedGames.length} modular game${detectedGames.length === 1 ? "" : "s"} in ${gamesDirectory}`);
 for (const game of detectedGames) {
   console.log(`Game: ${game.name} [${game.id}] runtime=${game.runtime} room=${game.room || "none"} client=${game.clientKind || "default"}`);
@@ -231,6 +235,24 @@ function applyCors(response) {
   response.setHeader("access-control-allow-headers", "Content-Type, Authorization");
 }
 
+function createHttpServer(listener) {
+  return tlsOptions
+    ? https.createServer(tlsOptions, listener)
+    : http.createServer(listener);
+}
+
+function loadTlsOptions() {
+  const pfxPath = process.env.NETBUDDIES_REALTIME_TLS_PFX_PATH || process.env.NETBUDDIES_TLS_PFX_PATH || "";
+  if (!pfxPath.trim()) {
+    return null;
+  }
+
+  return {
+    pfx: fs.readFileSync(pfxPath),
+    passphrase: process.env.NETBUDDIES_REALTIME_TLS_PFX_PASSWORD || process.env.NETBUDDIES_TLS_PFX_PASSWORD || ""
+  };
+}
+
 function loadAddonRooms(server, games) {
   const loaded = [];
   const roomNames = new Set(["lobby"]);
@@ -281,7 +303,7 @@ function attachWebGameRelay(server) {
   const rooms = new Map();
 
   server.on("upgrade", (request, socket, head) => {
-    const url = new URL(request.url, `http://${request.headers.host || "127.0.0.1"}`);
+    const url = new URL(request.url, `${httpProtocol}://${request.headers.host || "127.0.0.1"}`);
     if (!url.pathname.startsWith("/netbuddies/webgame/")) {
       return;
     }

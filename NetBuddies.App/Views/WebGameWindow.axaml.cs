@@ -27,7 +27,11 @@ public partial class WebGameWindow : Window
         GameHost.Children.Clear();
         FallbackPanel.IsVisible = false;
 
-        var result = ElectronGameHostService.Launch(viewModel.Source, viewModel.Title);
+        var result = ElectronGameHostService.Launch(
+            viewModel.Source,
+            viewModel.Title,
+            viewModel.ServerUrl,
+            viewModel.AllowUntrustedGameTls);
         if (result.Success)
         {
             ShowStatus(result.Message);

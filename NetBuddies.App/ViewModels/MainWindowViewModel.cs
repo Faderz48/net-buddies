@@ -342,6 +342,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
         var gameId = Guid.NewGuid().ToString("N");
         var serverUrl = BuildColyseusServerUrl();
+        var allowUntrustedGameTls = ShouldAllowUntrustedGameTls();
         var payload = JsonSerializer.Serialize(new WebGameInvite
         {
             GameId = game.Id,
@@ -356,7 +357,8 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             buddyName,
             DisplayName,
             serverUrl,
-            isHost: true);
+            isHost: true,
+            allowUntrustedGameTls: allowUntrustedGameTls);
 
         var chat = GetConversation(buddyName);
         chat.Messages.Add(chat.CreateMessage(
@@ -933,12 +935,14 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             host = "127.0.0.1";
         }
 
+        var scheme = UseSecureTls ? "wss" : "ws";
         if (Uri.TryCreate(host, UriKind.Absolute, out var absolute)
-            && absolute.Scheme.StartsWith("ws", StringComparison.OrdinalIgnoreCase))
+            && (absolute.Scheme.StartsWith("ws", StringComparison.OrdinalIgnoreCase)
+                || absolute.Scheme.StartsWith("http", StringComparison.OrdinalIgnoreCase)))
         {
             return new UriBuilder(absolute)
             {
-                Scheme = "ws",
+                Scheme = IsSecureGameScheme(absolute.Scheme) || UseSecureTls ? "wss" : "ws",
                 Port = absolute.IsDefaultPort ? 2567 : absolute.Port,
                 Path = "",
                 Query = ""
@@ -951,8 +955,16 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             hostOnly = parsed.Host;
         }
 
-        return new UriBuilder("ws", hostOnly, 2567).Uri.ToString().TrimEnd('/');
+        return new UriBuilder(scheme, hostOnly, 2567).Uri.ToString().TrimEnd('/');
     }
+
+    private bool ShouldAllowUntrustedGameTls() =>
+        UseSecureTls
+        && (TrustSelfSignedCertificate || !string.IsNullOrWhiteSpace(ServerCertificateFingerprint));
+
+    private static bool IsSecureGameScheme(string scheme) =>
+        scheme.Equals("wss", StringComparison.OrdinalIgnoreCase)
+        || scheme.Equals("https", StringComparison.OrdinalIgnoreCase);
 
     private static WebGameInvite ParseWebGameInvite(string text)
     {
@@ -1004,7 +1016,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         var serverUrl = string.IsNullOrWhiteSpace(invite.ServerUrl)
             ? BuildColyseusServerUrl()
             : invite.ServerUrl;
-        var session = new WebGameViewModel(gameId, game, buddyName, DisplayName, serverUrl, isHost);
+        var session = new WebGameViewModel(gameId, game, buddyName, DisplayName, serverUrl, isHost, ShouldAllowUntrustedGameTls());
         _webGameSessions[gameId] = session;
         return session;
     }

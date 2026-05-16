@@ -5,7 +5,11 @@ namespace NetBuddies.App.Services;
 
 public static class ElectronGameHostService
 {
-    public static ElectronGameHostLaunchResult Launch(Uri source, string title)
+    public static ElectronGameHostLaunchResult Launch(
+        Uri source,
+        string title,
+        string gameServerUrl = "",
+        bool allowUntrustedGameTls = false)
     {
         var host = FindHost();
         if (host is null)
@@ -16,7 +20,7 @@ public static class ElectronGameHostService
 
         try
         {
-            Process.Start(host.CreateStartInfo(source.ToString(), title));
+            Process.Start(host.CreateStartInfo(source.ToString(), title, gameServerUrl, allowUntrustedGameTls));
             return ElectronGameHostLaunchResult.Started("Game launched in the Net Buddies Electron game host.");
         }
         catch (Exception ex)
@@ -171,16 +175,25 @@ public static class ElectronGameHostService
             return new ElectronGameHost(electronPath, Quote(mainScript), hostDirectory);
         }
 
-        public ProcessStartInfo CreateStartInfo(string url, string title)
+        public ProcessStartInfo CreateStartInfo(
+            string url,
+            string title,
+            string gameServerUrl,
+            bool allowUntrustedGameTls)
         {
-            var arguments = string.Join(
-                ' ',
-                new[]
-                {
-                    ArgumentsPrefix,
-                    $"--url={Quote(url)}",
-                    $"--title={Quote(title)}"
-                }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            var argumentParts = new List<string>
+            {
+                ArgumentsPrefix,
+                $"--url={Quote(url)}",
+                $"--title={Quote(title)}"
+            };
+
+            if (allowUntrustedGameTls && TryBuildTlsHostArgument(gameServerUrl, out var tlsHost))
+            {
+                argumentParts.Add($"--allow-insecure-game-tls={Quote(tlsHost)}");
+            }
+
+            var arguments = string.Join(' ', argumentParts.Where(value => !string.IsNullOrWhiteSpace(value)));
 
             return new ProcessStartInfo
             {
@@ -190,6 +203,23 @@ public static class ElectronGameHostService
                 UseShellExecute = false
             };
         }
+
+        private static bool TryBuildTlsHostArgument(string gameServerUrl, out string tlsHost)
+        {
+            tlsHost = "";
+            if (!Uri.TryCreate(gameServerUrl, UriKind.Absolute, out var uri)
+                || !IsTlsScheme(uri.Scheme))
+            {
+                return false;
+            }
+
+            tlsHost = uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
+            return !string.IsNullOrWhiteSpace(tlsHost);
+        }
+
+        private static bool IsTlsScheme(string scheme) =>
+            scheme.Equals("wss", StringComparison.OrdinalIgnoreCase)
+            || scheme.Equals("https", StringComparison.OrdinalIgnoreCase);
 
         private static string Quote(string value)
         {

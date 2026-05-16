@@ -456,6 +456,7 @@ public partial class MainWindow : Window
         var bindAddress = string.IsNullOrWhiteSpace(RealtimeBindBox.Text)
             ? "0.0.0.0"
             : RealtimeBindBox.Text.Trim();
+        var useRealtimeTls = CurrentTlsMode == ServerTlsMode.DotNetTls;
         var startInfo = new ProcessStartInfo
         {
             FileName = node,
@@ -473,6 +474,11 @@ public partial class MainWindow : Window
         startInfo.Environment["NETBUDDIES_REALTIME_BIND"] = bindAddress;
         startInfo.Environment["NETBUDDIES_PONG_PORT"] = (port + 1).ToString();
         startInfo.Environment["NETBUDDIES_REALTIME_GAMES_DIR"] = Path.Combine(realtimeDirectory, "games");
+        if (useRealtimeTls)
+        {
+            startInfo.Environment["NETBUDDIES_REALTIME_TLS_PFX_PATH"] = PfxPathBox.Text?.Trim() ?? "";
+            startInfo.Environment["NETBUDDIES_REALTIME_TLS_PFX_PASSWORD"] = CertificatePasswordBox.Text ?? "";
+        }
 
         _realtimeProcess = Process.Start(startInfo);
         if (_realtimeProcess is null)
@@ -497,8 +503,9 @@ public partial class MainWindow : Window
         _realtimeProcess.BeginOutputReadLine();
         _realtimeProcess.BeginErrorReadLine();
         var gamesSummary = games.Count == 1 ? "1 game" : $"{games.Count} games";
-        RealtimeStatusText.Text = $"Real-time game server running on {bindAddress}:{port}. Buddy Pong uses {bindAddress}:{port + 1}. Detected {gamesSummary}.";
-        AddLog($"Started real-time game server on {bindAddress}:{port}; Buddy Pong on {bindAddress}:{port + 1}; detected {gamesSummary}.");
+        var scheme = useRealtimeTls ? "wss" : "ws";
+        RealtimeStatusText.Text = $"Real-time game server running on {scheme}://{bindAddress}:{port}. Relay uses {scheme}://{bindAddress}:{port + 1}. Detected {gamesSummary}.";
+        AddLog($"Started real-time game server on {scheme}://{bindAddress}:{port}; relay on {scheme}://{bindAddress}:{port + 1}; detected {gamesSummary}.");
     }
 
     private async Task InstallRealtimeDependenciesAsync(string realtimeDirectory, string npm)

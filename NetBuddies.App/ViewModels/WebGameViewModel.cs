@@ -12,7 +12,8 @@ public sealed partial class WebGameViewModel : ViewModelBase
         string buddyName,
         string localPlayerName,
         string serverUrl,
-        bool isHost)
+        bool isHost,
+        bool allowUntrustedGameTls = false)
     {
         GameId = gameId;
         CatalogGameId = game.Id;
@@ -22,6 +23,7 @@ public sealed partial class WebGameViewModel : ViewModelBase
         LocalPlayerName = localPlayerName;
         ServerUrl = serverUrl;
         IsHost = isHost;
+        AllowUntrustedGameTls = allowUntrustedGameTls;
         Source = BuildSource(game);
     }
 
@@ -33,6 +35,7 @@ public sealed partial class WebGameViewModel : ViewModelBase
     public string LocalPlayerName { get; }
     public string ServerUrl { get; }
     public bool IsHost { get; }
+    public bool AllowUntrustedGameTls { get; }
     public string Title => $"{GameName} with {BuddyName}";
     public Uri Source { get; }
     public string SourceText => Source.ToString();
@@ -95,7 +98,7 @@ public sealed partial class WebGameViewModel : ViewModelBase
             : game.ClientEntry.Replace('\\', '/').TrimStart('/');
         var builder = new UriBuilder(serverUri)
         {
-            Scheme = "http",
+            Scheme = UsesTls(serverUri) ? "https" : "http",
             Port = serverUri.IsDefaultPort ? -1 : serverUri.Port,
             Path = $"games/{Uri.EscapeDataString(CatalogGameId)}/{clientEntry}",
             Query = ""
@@ -113,11 +116,15 @@ public sealed partial class WebGameViewModel : ViewModelBase
 
         var builder = new UriBuilder(serverUri)
         {
-            Scheme = "ws",
+            Scheme = UsesTls(serverUri) ? "wss" : "ws",
             Port = serverUri.IsDefaultPort ? -1 : serverUri.Port + 1,
             Path = $"netbuddies/webgame/{Uri.EscapeDataString(CatalogGameId)}/{Uri.EscapeDataString(GameId)}",
             Query = ""
         };
         return builder.Uri.ToString();
     }
+
+    private static bool UsesTls(Uri uri) =>
+        uri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase)
+        || uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase);
 }
