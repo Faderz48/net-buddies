@@ -28,6 +28,13 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: electron-game-host/package-lock.json
+
       - name: Restore
         run: dotnet restore NetBuddies.slnx
 
@@ -42,12 +49,13 @@ jobs:
           --self-contained true
           --output publish/win-x64-client-installer-files
 
-      - name: Download WebView2 runtime bootstrapper
+      - name: Package Electron game host
         shell: pwsh
-        run: >
-          Invoke-WebRequest
-          -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
-          -OutFile publish/win-x64-client-installer-files/MicrosoftEdgeWebview2Setup.exe
+        run: |
+          npm ci --prefix electron-game-host
+          npm run package:win --prefix electron-game-host
+          New-Item -ItemType Directory -Force -Path publish/win-x64-client-installer-files/ElectronGameHost
+          Copy-Item -Recurse -Force electron-game-host/dist/"NetBuddies Game Host-win32-x64"/* publish/win-x64-client-installer-files/ElectronGameHost/
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress --yes
@@ -247,8 +255,8 @@ jobs:
             Net Buddies ${{ github.ref_name }} release.
 
             Highlights:
-            - Built-in TLS support in the server GUI.
-            - Server GUI online/offline status indicator.
-            - Modular web-game runtime with all current games loaded from game folders.
+            - Electron game host with bundled Chromium for web games.
+            - WebView2 dependency removed from the client.
+            - Voice notes now play inline without saving to downloads.
             - Refreshed Windows installer, Windows server GUI, Linux client AppImage, and Linux server GUI AppImage.
           files: release-assets/*

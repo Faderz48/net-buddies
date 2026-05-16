@@ -1,6 +1,4 @@
 using Avalonia;
-using System;
-using System.IO;
 
 namespace NetBuddies.App;
 
@@ -12,7 +10,6 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        ConfigureWebView2UserDataFolder();
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
@@ -25,19 +22,4 @@ sealed class Program
 #endif
             .WithInterFont()
             .LogToTrace();
-
-    private static void ConfigureWebView2UserDataFolder()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        var profilePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "NetBuddies",
-            "WebView2");
-        Directory.CreateDirectory(profilePath);
-        Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", profilePath);
-    }
 }

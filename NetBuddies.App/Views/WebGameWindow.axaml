@@ -44,7 +44,7 @@
                     VerticalAlignment="Center"
                     MaxWidth="520">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="This game could not be opened inside Net Buddies on this machine."
+                    <TextBlock Text="Net Buddies game host"
                                FontSize="18"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
@@ -52,19 +52,16 @@
                     <TextBlock x:Name="FallbackReasonText"
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource NbMutedTextBrush}"/>
-                    <TextBlock Text="Net Buddies uses the Microsoft WebView2 runtime to render these games inside this window. It is not meant to open a separate browser."
+                    <TextBlock Text="Games run in the Net Buddies Electron host, which ships its own Chromium with the app."
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource NbMutedTextBrush}"/>
                     <StackPanel Orientation="Horizontal"
                                 Spacing="8">
-                        <Button x:Name="InstallRuntimeButton"
-                                Content="Install WebView2 Runtime"
-                                Click="InstallRuntime_Click"
-                                IsVisible="False"/>
-                        <Button Content="Try Again"
+                        <Button Content="Launch Game"
                                 Click="TryAgain_Click"/>
                     </StackPanel>
                     <TextBlock x:Name="FallbackActionText"
+                               Text="{Binding LaunchStatusText}"
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource NbWarningBrush}"/>
                 </StackPanel>

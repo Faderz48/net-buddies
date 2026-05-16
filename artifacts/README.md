@@ -1,5 +1,5 @@
 # Net Buddies Build Artifacts
 
-This folder contains the latest packaged Net Buddies client and server binaries for GitHub distribution.
+Build outputs are generated into the local `publish` folder and uploaded by GitHub Actions for releases.
 
-The source code lives in the project folders at the repository root. The `latest` folder is refreshed from local publish output when making a release-style commit.
+Packaged binaries are intentionally not kept in source control here; the source code lives in the project folders at the repository root.

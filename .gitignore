@@ -16,6 +16,8 @@ publish/
 *.tmp
 TestResults/
 /realtime-games/node_modules/
+/electron-game-host/node_modules/
+/electron-game-host/dist/
 artifacts/**/*.tmp
 artifacts/latest/NetBuddies-win-x64-*.zip
 /netbuddies_installer.iss

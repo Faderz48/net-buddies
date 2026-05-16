@@ -26,6 +26,7 @@ Net Buddies is a C#/.NET Avalonia  MSN-style instant messaging app.
 - File transfers, game requests, and room invites now require the other buddy to accept or deny before anything starts.
 - Right-click a buddy and choose `Play Game` to start Tic Tac Toe, Checkers, or Minesweeper Flags.
 - Games use visual boards with drawn marks, checkers pieces, kings, flags, and mine-number styling.
+- Web games launch in the bundled Electron game host, which ships Chromium with the client package.
 - Tic Tac Toe highlights the winning line and uses polished vector X/O marks.
 - Minesweeper Flags shows flag scoring, remaining flags, and expands empty safe areas.
 - A standalone server app is available for Windows and Linux hosting without opening the full client.
@@ -50,6 +51,12 @@ Local profile settings are stored in `%APPDATA%/NetBuddies/profile.json`.
 
 ```powershell
 dotnet run --project .\NetBuddies.App\NetBuddies.App.csproj
+```
+
+For local game-host testing, install the Electron host dependencies once:
+
+```powershell
+npm install --prefix .\electron-game-host
 ```
 
 Standalone server:

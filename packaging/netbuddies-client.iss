@@ -1,5 +1,5 @@
 #define AppName "Net Buddies"
-#define AppVersion "1.7"
+#define AppVersion "1.8"
 #define Publisher "Net Buddies"
 #define SourceDir "..\publish\win-x64-client-installer-files"
 #define OutputDir "..\publish"
@@ -40,15 +40,4 @@ Name: "{commondesktop}\Net Buddies"; Filename: "{app}\NetBuddies.App.exe"; Worki
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Net Buddies"; ValueData: """{app}\NetBuddies.App.exe"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
-Filename: "{app}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Installing Microsoft Edge WebView2 Runtime for in-app games..."; Flags: waituntilterminated; Check: NeedsWebView2
 Filename: "{app}\NetBuddies.App.exe"; Description: "Launch Net Buddies"; Flags: nowait postinstall skipifsilent runasoriginaluser
-
-[Code]
-function NeedsWebView2(): Boolean;
-begin
-  Result :=
-    not RegKeyExists(HKLM, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}') and
-    not RegKeyExists(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}') and
-    not FileExists(ExpandConstant('{commonpf32}\Microsoft\EdgeWebView\Application\msedgewebview2.exe')) and
-    not FileExists(ExpandConstant('{commonpf}\Microsoft\EdgeWebView\Application\msedgewebview2.exe'));
-end;

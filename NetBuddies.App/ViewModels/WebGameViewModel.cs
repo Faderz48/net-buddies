@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NetBuddies.App.Services;
-using System.Diagnostics;
 
 namespace NetBuddies.App.ViewModels;
 
@@ -49,24 +48,6 @@ public sealed partial class WebGameViewModel : ViewModelBase
     private void EndGame()
     {
         CloseRequested?.Invoke(this);
-    }
-
-    [RelayCommand]
-    private void OpenExternally()
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = SourceText,
-                UseShellExecute = true
-            });
-            LaunchStatusText = "Game opened in your browser.";
-        }
-        catch (Exception ex)
-        {
-            LaunchStatusText = $"Could not open game externally: {ex.Message}";
-        }
     }
 
     private Uri BuildSource(GameCatalogItem game)

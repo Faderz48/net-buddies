@@ -527,7 +527,8 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         switch (packet.FileAction)
         {
             case "VoiceNote":
-                return SaveIncomingVoiceNote(packet);
+                AddIncomingVoiceNote(packet);
+                return null;
             case "Offer":
                 AddRequest(
                     "File transfer",
@@ -775,18 +776,19 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         Messages.Add(CreateMessage(packet.From, label, isMine: false, inlineImageBytes: bytes, inlineFileName: packet.FileName));
     }
 
-    private string SaveIncomingVoiceNote(NetBuddiesPacket packet)
+    private void AddIncomingVoiceNote(NetBuddiesPacket packet)
     {
-        var downloadsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "NetBuddiesDownloads",
-            "VoiceNotes");
-        Directory.CreateDirectory(downloadsPath);
-
         var safeFileName = string.Join("_", packet.FileName.Split(Path.GetInvalidFileNameChars()));
-        var fullPath = Path.Combine(downloadsPath, safeFileName);
-        var bytes = Convert.FromBase64String(packet.PayloadBase64);
-        File.WriteAllBytes(fullPath, bytes);
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(packet.PayloadBase64);
+        }
+        catch
+        {
+            Messages.Add(CreateMessage("Net Buddies", $"Could not play voice note from {packet.From}.", isMine: false, isEvent: true));
+            return;
+        }
 
         var seconds = string.IsNullOrWhiteSpace(packet.Text) ? "" : $" ({packet.Text}s)";
         Messages.Add(CreateMessage(
@@ -794,9 +796,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             $"VoiceNote received{seconds}: {safeFileName}",
             isMine: false,
             isEvent: true,
-            voiceNotePath: fullPath));
-        DownloadSaved?.Invoke(fullPath);
-        return fullPath;
+            voiceNoteBytes: bytes));
     }
 
     private void StartVoiceNote()
@@ -857,7 +857,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         }
 
         await _client.SendVoiceNoteAsync(BuddyName, wavBytes, duration);
-        Messages.Add(CreateMessage("Me", $"VoiceNote sent ({duration.TotalSeconds:0}s).", isMine: true, isEvent: true));
+        Messages.Add(CreateMessage("Me", $"VoiceNote sent ({duration.TotalSeconds:0}s).", isMine: true, isEvent: true, voiceNoteBytes: wavBytes));
         VoiceNoteStatus = $"VoiceNote sent ({duration.TotalSeconds:0}s).";
     }
 
@@ -919,13 +919,14 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         bool isMine,
         bool isEvent = false,
         string voiceNotePath = "",
+        byte[]? voiceNoteBytes = null,
         byte[]? inlineImageBytes = null,
         string inlineFileName = "")
     {
         var avatarName = isMine && sender.Equals("Me", StringComparison.OrdinalIgnoreCase)
             ? _client.DisplayName
             : sender;
-        return new MessageLineViewModel(sender, body, isMine, isEvent, GetAvatar(avatarName), voiceNotePath, inlineImageBytes, inlineFileName);
+        return new MessageLineViewModel(sender, body, isMine, isEvent, GetAvatar(avatarName), voiceNotePath, voiceNoteBytes, inlineImageBytes, inlineFileName);
     }
 
     private GameImageAsset? GetAvatar(string sender)

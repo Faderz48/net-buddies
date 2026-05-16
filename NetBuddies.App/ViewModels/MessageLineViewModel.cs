@@ -12,8 +12,10 @@ public sealed partial class MessageLineViewModel : ViewModelBase
 {
     private WaveFileReader? _voiceNoteReader;
     private WaveOutEvent? _voiceNoteOutput;
+    private MemoryStream? _voiceNoteStream;
     private readonly List<TimeSpan> _inlineFrameDelays = [];
     private readonly List<Bitmap> _inlineFrames = [];
+    private readonly byte[]? _voiceNoteBytes;
     private readonly byte[]? _inlineImageBytes;
     private DispatcherTimer? _inlineTimer;
     private int _inlineFrameIndex;
@@ -25,6 +27,7 @@ public sealed partial class MessageLineViewModel : ViewModelBase
         bool isEvent = false,
         GameImageAsset? avatarImage = null,
         string voiceNotePath = "",
+        byte[]? voiceNoteBytes = null,
         byte[]? inlineImageBytes = null,
         string inlineFileName = "")
     {
@@ -34,6 +37,7 @@ public sealed partial class MessageLineViewModel : ViewModelBase
         IsEvent = isEvent;
         AvatarImage = avatarImage;
         VoiceNotePath = voiceNotePath;
+        _voiceNoteBytes = voiceNoteBytes;
         InlineFileName = string.IsNullOrWhiteSpace(inlineFileName) ? body : inlineFileName;
         _inlineImageBytes = inlineImageBytes;
         InlineImage = CreateInlineImage(inlineImageBytes);
@@ -50,7 +54,7 @@ public sealed partial class MessageLineViewModel : ViewModelBase
     public GameImageAsset? AvatarImage { get; }
     public string VoiceNotePath { get; }
     public string InlineFileName { get; }
-    public bool HasVoiceNote => !string.IsNullOrWhiteSpace(VoiceNotePath);
+    public bool HasVoiceNote => _voiceNoteBytes is { Length: > 0 } || !string.IsNullOrWhiteSpace(VoiceNotePath);
     public bool HasInlineImage => InlineImage is not null;
     public bool HasInlineDownload => HasInlineImage && _inlineImageBytes is { Length: > 0 };
     public string Stamp { get; } = DateTime.Now.ToString("HH:mm");
@@ -103,14 +107,27 @@ public sealed partial class MessageLineViewModel : ViewModelBase
     [RelayCommand]
     private void PlayVoiceNote()
     {
-        if (!HasVoiceNote || !File.Exists(VoiceNotePath))
+        if (!HasVoiceNote)
         {
             return;
         }
 
         StopVoiceNote();
 
-        _voiceNoteReader = new WaveFileReader(VoiceNotePath);
+        if (_voiceNoteBytes is { Length: > 0 })
+        {
+            _voiceNoteStream = new MemoryStream(_voiceNoteBytes, writable: false);
+            _voiceNoteReader = new WaveFileReader(_voiceNoteStream);
+        }
+        else if (File.Exists(VoiceNotePath))
+        {
+            _voiceNoteReader = new WaveFileReader(VoiceNotePath);
+        }
+        else
+        {
+            return;
+        }
+
         _voiceNoteOutput = new WaveOutEvent();
         _voiceNoteOutput.Init(_voiceNoteReader);
         _voiceNoteOutput.PlaybackStopped += VoiceNoteOutput_PlaybackStopped;
@@ -141,6 +158,8 @@ public sealed partial class MessageLineViewModel : ViewModelBase
         _voiceNoteOutput = null;
         _voiceNoteReader?.Dispose();
         _voiceNoteReader = null;
+        _voiceNoteStream?.Dispose();
+        _voiceNoteStream = null;
         IsVoiceNotePlaying = false;
     }
 
